@@ -1,12 +1,5 @@
 # IBM Spectrum Scale on OCI
-This Terrrafom template deploys an IBM Spectrum Scale distributed parallel file system on Oracle Cloud Infrastructure (OCI).
-
-IBM Spectrum Scale is a high-performance, highly available, clustered file system and associated management software, available on a variety of platforms. IBM Spectrum Scale can scale in several dimensions, including performance (bandwidth and IOPS), capacity, and number of nodes* (instances) that can mount the file system. IBM Spectrum Scale addresses the needs of applications whose performance (or performance-to-capacity ratio) demands cannot be met by traditional scale-up storage systems; and IBM Spectrum Scale is therefore deployed for many I/O-demanding enterprise applications that require high
-performance or scale. IBM Spectrum Scale provides various configuration options, access methods (including traditional POSIX-based file access), and many features such as snapshots, compression, and encryption. Note that IBM Spectrum Scale is not itself an application in the traditional sense, but instead provides the storage infrastructure for
-applications, and it’s expected that such applications will be installed on the instances
-provisioned by this template.
-
-
+This Terrrafom template deploys an IBM Spectrum Scale distributed parallel file system on Oracle Cloud Infrastructure (OCI) using shared nothing architecture.
 
 
 # High Level Architecture
@@ -15,7 +8,6 @@ The template creates all the required infrastucture (virtual network, nat gatewa
 You can choose to build the parallel  file system using just Block Volumes or highly performant local NVMe disk (DenseIO shapes) or use both to create a data tier solution which delivers high performance as well as economical.   
 
 The solution can be deployed across 2 Availability domains (AD) (set DataReplica parameter to 2) or in a single AD. 
-
 
 
 ![](../images/01-shared-nothing-architecture.png)
