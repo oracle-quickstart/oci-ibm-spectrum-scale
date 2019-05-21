@@ -18,7 +18,7 @@ The solution can be deployed across 2 Availability domains (AD) (set DataReplica
 
 
 
-![](./images/IBM_Spectrum_Scale_Architecture.png)
+![](./images/01-shared-nothing-architecture.png)
 
 ## IBM Spectrum Scale Data Management license 
 This template assumes you already have purchased a license from IBM and have downloaded the software.  The software needs to be stored on a server which is accessible from the servers created by this template in OCI.  For example: you can save the software in OCI Object Storage bucket and create pre-authenticated request to use in your template.  
@@ -61,11 +61,11 @@ Deploy using standard Terraform commands
 
 ## Terraform apply - output 
 
-![](./images/tf_apply.png)
+![](./images/02-tf-apply.png)
 
 ## Output for various GPFS commands
 
-![](./images/mm_commands.png)
+![](./images/03-mm-commands.png)
 
 
 
