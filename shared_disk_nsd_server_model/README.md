@@ -1,6 +1,8 @@
 # IBM Spectrum Scale on OCI
 This Terrrafom template deploys an IBM Spectrum Scale distributed parallel file system on Oracle Cloud Infrastructure (OCI) using shared disk NSD Server  architecture.
 
+# THIS IS IN PROGRESS 
+
 
 ## IBM Spectrum Scale Data Management license 
 This template assumes you already have purchased a license from IBM and have downloaded the software.  The software needs to be stored on a server which is accessible from the servers created by this template in OCI.  For example: you can save the software in OCI Object Storage bucket and create pre-authenticated request to use in your template.  
