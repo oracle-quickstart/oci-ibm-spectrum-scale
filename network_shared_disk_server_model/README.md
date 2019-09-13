@@ -3,7 +3,10 @@ This Terrrafom template deploys an IBM Spectrum Scale distributed parallel file 
 
 
 ## Network Shared Disk (NSD) Server model architecture
+The template creates all the required infrastucture (virtual network, nat gateway, securitylist, compute, Block volume etc.) as well as installs and configures IBM Spectrum Scale Data Management software.  The solution can be deployed across 2 Availability domains (AD) (set DataReplica parameter to 2) or in a single AD. 
 
+
+![](../images/network_shared_disk_server_model/01-high-level-architecture.png)
 
 ## IBM Spectrum Scale Data Management license 
 This template assumes you already have purchased a license from IBM and have downloaded the software.  The software needs to be stored on a server which is accessible from the servers created by this template in OCI.  For example: you can save the software in OCI Object Storage bucket and create pre-authenticated request to use in your template.  
@@ -36,11 +39,11 @@ Deploy using standard Terraform commands
 
 ## Terraform apply - output 
 
-![](../images/02-tf-apply.png)
+![](../images/network_shared_disk_server_model/02-tf-apply.png)
 
 ## Output for various GPFS commands
 
-![](../images/03-mm-commands.png)
+![](../images/network_shared_disk_server_model/03-mm-commands.png)
 
 
 
