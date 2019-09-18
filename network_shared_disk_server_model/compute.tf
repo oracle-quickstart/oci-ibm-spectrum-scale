@@ -260,11 +260,43 @@ resource "null_resource" "deploy_gpfs_on_nsd_server_nodes" {
       "sudo -s bash -c 'set -x && chmod 777 /tmp/*.sh'",
       "sudo -s bash -c 'set -x && /tmp/nodes-cloud-init-complete-status-check.sh'",
       "sudo su -l -c 'set -x && /tmp/deploy_spectrum_scale.sh'",
-      "sudo su -l -c 'set -x && /tmp/create_spectrum_scale_cluster.sh'",
     ]
   }
 }
 
+
+/* Remote exec to create gpfs cluster on installer node */
+resource "null_resource" "create_gpfs_cluster" {
+  depends_on = [
+    oci_core_instance.nsd_node,
+    null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
+    null_resource.deploy_gpfs_on_nsd_server_nodes,
+    null_resource.deploy_gpfs_on_client_nodes
+  ]
+  count = 1
+  triggers = {
+    instance_ids = "oci_core_instance.nsd_node.*.id"
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = var.ssh_private_key
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = var.ssh_private_key
+    }
+    inline = [
+      "set -x",
+      "sudo -s bash -c 'set -x && chmod 777 /tmp/*.sh'",
+      "sudo su -l -c 'set -x && /tmp/create_spectrum_scale_cluster.sh'",
+    ]
+  }
+}
 
 
 

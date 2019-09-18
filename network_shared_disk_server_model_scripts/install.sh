@@ -159,9 +159,18 @@ if [ $? -eq 0 ] ; then
   primaryNICInterface="ens3"
 fi
 
-echo "MTU=9000" >> /etc/sysconfig/network-scripts/ifcfg-$primaryNICInterface
-echo "NM_CONTROLLED=no" >> /etc/sysconfig/network-scripts/ifcfg-$primaryNICInterface
-echo "ETHTOOL_OPTS=\"-G ${primaryNICInterface} rx 2047 tx 2047 rx-jumbo 8191; -L ${primaryNICInterface} combined 74\" " >> /etc/sysconfig/network-scripts/ifcfg-$primaryNICInterface
+ifconfig | grep "^enp70s0f0:"
+if [ $? -eq 0 ] ; then
+  primaryNICInterface="enp70s0f0"
+fi
+
+#echo "MTU=9000" >> /etc/sysconfig/network-scripts/ifcfg-$primaryNICInterface
+#echo "NM_CONTROLLED=no" >> /etc/sysconfig/network-scripts/ifcfg-$primaryNICInterface
+#echo "ETHTOOL_OPTS=\"-G ${primaryNICInterface} rx 2047 tx 2047 rx-jumbo 8191; -L ${primaryNICInterface} combined 74\" " >> /etc/sysconfig/network-scripts/ifcfg-$primaryNICInterface
+
+echo "ethtool -G $primaryNICInterface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
+echo "ethtool -L $primaryNICInterface combined 74" >> /etc/rc.local
+chmod +x /etc/rc.local
 
 #######################################################"
 
@@ -183,13 +192,10 @@ setenforce 0
 ### OS Performance tuning
 ###########################
 
-echo "$thisHost" | grep -q  $nsdNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
 
-  # The below applies for both compute and server nodes (storage)
-  cd /usr/lib/tuned/
-  cp -r throughput-performance/ gpfs-oci-performance
-
+# The below applies for both client and server nodes (storage)
+cd /usr/lib/tuned/
+cp -r throughput-performance/ gpfs-oci-performance
 
 echo "
 #
@@ -237,13 +243,30 @@ vm.dirty_background_ratio = 10
 vm.swappiness=30
 " > gpfs-oci-performance/tuned.conf
 
+cd -
 
-tuned-adm profile gpfs-oci-performance
+
+# before applying to client nodes, make sure they have enough memory.
+echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
+if [ $? -eq 0 ] ; then
+  coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ; echo $coreIdCount
+  socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))` ; echo $socketCount
+  if [ $((socketCount*coreIdCount)) -gt 4  ]; then
+    tuned-adm profile gpfs-oci-performance
+  else
+    # Client is using shape with less than 4 physical cores and less 30GB memory, above tuned profile requires atleast 16GB of vm.min_free_kbytes, hence don't apply tuning be default.  Let user evaluate what are valid values for such small compute shapes.
+    echo "skip profile tuning..."
+  fi ;
+fi;
+
+
+echo "$thisHost" | grep -q  $nsdNodeHostnamePrefix
+if [ $? -eq 0 ] ; then
+  tuned-adm profile gpfs-oci-performance
+fi
 
 # Display active profile
 tuned-adm active
-cd - 
-fi
 
 
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
@@ -514,8 +537,16 @@ enabled=1' > /etc/yum.repos.d/spectrum-scale.repo
 
 yum clean all
 yum makecache
-yum -y update
 yum -y install kernel-devel cpp gcc gcc-c++ binutils kernel-headers
+yum -y install psmisc numad numactl iperf3 dstat iproute automake autoconf git
+yum -y update
+
+# For GUI node:
+#yum -y install gpfs.base gpfs.gpl gpfs.msg.en_US gpfs.gskit gpfs.license* gpfs.ext gpfs.crypto gpfs.compression gpfs.adv gpfs.gss.pmsensors gpfs.docs gpfs.java gpfs.kafka gpfs.librdkafka gpfs.gui gpfs.gss.pmcollector
+
+# For non-GUI node:
+yum -y install gpfs.base gpfs.gpl gpfs.msg.en_US gpfs.gskit gpfs.license* gpfs.ext gpfs.crypto gpfs.compression gpfs.adv gpfs.gss.pmsensors gpfs.docs gpfs.java gpfs.kafka gpfs.librdkafka
+
 sed -i '/distroverpkg/a exclude=kernel*' /etc/yum.conf
 
 

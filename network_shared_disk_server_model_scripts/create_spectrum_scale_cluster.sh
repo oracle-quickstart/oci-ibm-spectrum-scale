@@ -126,6 +126,12 @@ if [ $? -eq 0 ] ; then
 
 
   mmstartup -a
+  # or
+# mmstartup -N nsdNodes
+# while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount)) ] ; do echo "waiting for server nodes of cluster to start ..." ; sleep 10s; done;
+# mmstartup -N clientNodes
+# while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
+
   while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for cluster to start ..." ; sleep 10s; done;
 
 

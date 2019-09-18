@@ -52,11 +52,6 @@ done ;
 ###############################
 
 
-# For GUI node:
-#yum -y install gpfs.base gpfs.gpl gpfs.msg.en_US gpfs.gskit gpfs.license* gpfs.ext gpfs.crypto gpfs.compression gpfs.adv gpfs.gss.pmsensors gpfs.docs gpfs.java gpfs.kafka gpfs.librdkafka gpfs.gui gpfs.gss.pmcollector
-# For non-GUI node:
-yum -y install gpfs.base gpfs.gpl gpfs.msg.en_US gpfs.gskit gpfs.license* gpfs.ext gpfs.crypto gpfs.compression gpfs.adv gpfs.gss.pmsensors gpfs.docs gpfs.java gpfs.kafka gpfs.librdkafka
-
 # Build the GPFS potability layer.
 /usr/lpp/mmfs/bin/mmbuildgpl
 # have seen the above fail sometimes, hence the below loop
