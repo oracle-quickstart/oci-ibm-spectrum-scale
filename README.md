@@ -1,5 +1,5 @@
 # oci-quickstart-ibm-spectrum-scale
-These are Terraform modules that deploy IBM Spectrum Scale (GPFS) distributed parallel file system on [Oracle Cloud Infrastructure (OCI)](https://cloud.oracle.com/en_US/cloud-infrastructure).   These were developed jointly by [Re-Store](https://www.re-store.net/) and Oracle.
+These are Terraform modules that deploy IBM Spectrum Scale (GPFS) distributed parallel file system on [Oracle Cloud Infrastructure (OCI)](https://cloud.oracle.com/en_US/cloud-infrastructure).   These were developed jointly by [Re-Store](https://www.re-store.net/) and Oracle.  For instructions on how to use this material and details on getting support from the vendor that maintains this material, please contact them directly.
 
 These templates deploy IBM Spectrum Scale Data Management Edition using "Network Shared Disk (NSD) Server model/cluster topology. Please follow the instructions in [network_shared_disk_server_model](network_shared_disk_server_model)  folders to deploy.
 
