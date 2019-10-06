@@ -47,16 +47,12 @@ sleep 60s
 #   Update resolv.conf  #
 ## Modify resolv.conf to ensure DNS lookups work from one private subnet to another subnet
 mv /etc/resolv.conf /etc/resolv.conf.backup
-echo `hostname` | grep -q $clientNodeHostnamePrefix
+echo `hostname` | grep -q $cesNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
-  echo "search ${privateBSubnetsFQDN}" > /etc/resolv.conf
+  echo "search ${privateProtocolSubnetFQDN} ${privateBSubnetsFQDN} " > /etc/resolv.conf
   echo "nameserver 169.254.169.254" >> /etc/resolv.conf
 fi
-echo `hostname` | grep -q $nsdNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
-  echo "search ${privateBSubnetsFQDN} ${privateSubnetsFQDN} " > /etc/resolv.conf
-  echo "nameserver 169.254.169.254" >> /etc/resolv.conf
-fi
+
 
 # The below is to ensure any custom change to /etc/hosts and /etc/resolv.conf will not be overwritten with data from metaservice, but dhclient will still overwrite /etc/resolv.conf.  Hence do the additional step using chattr command.
 if [ -z /etc/oci-hostname.conf ]; then
@@ -72,12 +68,12 @@ chattr +i /etc/resolv.conf
 
 
 #   configure 2nd NIC   #
-echo `hostname` | grep -q $clientNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
-  echo "client nodes - get hostname..."
-  thisFQDN=`hostname --fqdn`
-  thisHost=${thisFQDN%%.*}
-else
+###echo `hostname` | grep -q $clientNodeHostnamePrefix
+###if [ $? -eq 0 ] ; then
+###  echo "client nodes - get hostname..."
+###  thisFQDN=`hostname --fqdn`
+###  thisHost=${thisFQDN%%.*}
+###else
 ifconfig | grep "^eno3d1:\|^enp70s0f1d1:\|^eno2d1:"
   if [ $? -eq 0 ] ; then
     echo "2 NIC setup"
@@ -104,7 +100,7 @@ ifconfig | grep "^eno3d1:\|^enp70s0f1d1:\|^eno2d1:"
 
       cd /etc/sysconfig/network-scripts/
 
-      # Wait till 2nd NIC is configured, since the GPFS cluster will use the 2nd NIC for cluster comm.
+      # Wait till 2nd NIC is configured, since the CES nodes will use the 2nd NIC for cluster comm.
       privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp' | sed 's/"//g' ` ; echo $privateIp
       while [ -z "$privateIp" -o $privateIp = "null" ];
       do
@@ -132,16 +128,16 @@ MTU=9000
 NM_CONTROLLED=no
 " > /etc/sysconfig/network-scripts/ifcfg-$interface
 
-# Check if processor is Intel or AMD
-lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
-if [ $? -eq 0 ];  then
-  echo AMD
-  # Do nothing. Use default
-else
-  echo Intel
-  # The below are only applicable to Intel shapes, not for AMD shapes, it degrades n/w performance on AMD
-  echo "ETHTOOL_OPTS=\"-G ${interface} rx 2047 tx 2047 rx-jumbo 8191; -L ${interface} combined 74\"" >> /etc/sysconfig/network-scripts/ifcfg-$interface
-fi
+      # Check if processor is Intel or AMD
+      lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
+      if [ $? -eq 0 ];  then
+        echo AMD
+        # Do nothing. Use default
+      else
+        echo Intel
+        # The below are only applicable to Intel shapes, not for AMD shapes, it degrades n/w performance on AMD
+        echo "ETHTOOL_OPTS=\"-G ${interface} rx 2047 tx 2047 rx-jumbo 8191; -L ${interface} combined 74\"" >> /etc/sysconfig/network-scripts/ifcfg-$interface
+      fi
 
 
 
@@ -151,7 +147,7 @@ fi
       systemctl restart network.service
 
       ip route ; ifconfig ; route ; ip addr ;
-# Add logic to ensure the below is not empty
+      # Add logic to ensure the below is not empty
       secondNicFQDNHostname=`nslookup $privateIp | grep "name = " | gawk -F"=" '{ print $2 }' | sed  "s|^ ||g" | sed  "s|\.$||g"`
       thisFQDN=$secondNicFQDNHostname
       thisHost=${thisFQDN%%.*}
@@ -165,7 +161,7 @@ fi
       thisFQDN="`hostname --fqdn`"
       thisHost="${thisFQDN%%.*}"
     fi
-fi
+###fi
 
 
 #  configure 1st NIC for performance   #
@@ -216,7 +212,7 @@ echo "thisHost=\"$thisHost\"" >> /tmp/gpfs_env_variables.sh
 mv /etc/yum.repos.d/epel.repo  /etc/yum.repos.d/epel.repo.disabled
 mv /etc/yum.repos.d/epel-testing.repo  /etc/yum.repos.d/epel-testing.repo.disabled
 sed -i "s/SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
-setenforce 0 
+setenforce 0
 
 ### OS Performance tuning
 
@@ -273,38 +269,35 @@ vm.swappiness=30
 cd -
 
 
-# before applying to client nodes, make sure they have enough memory.
-echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
+# before applying to ces nodes, make sure they have enough memory.
+echo "$thisHost" | grep -q  $cesNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ; echo $coreIdCount
   socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))` ; echo $socketCount
   if [ $((socketCount*coreIdCount)) -gt 4  ]; then
     tuned-adm profile gpfs-oci-performance
   else
-    # Client is using shape with less than 4 physical cores and less 30GB memory, above tuned profile requires atleast 16GB of vm.min_free_kbytes, hence don't apply tuning be default.  Let user evaluate what are valid values for such small compute shapes.
+    # CES node is using shape with less than 4 physical cores and less 30GB memory, above tuned profile requires atleast 16GB of vm.min_free_kbytes, hence don't apply tuning be default.  Let user evaluate what are valid values for such small compute shapes.
     echo "skip profile tuning..."
   fi ;
 fi;
 
 
-echo "$thisHost" | grep -q  $nsdNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
-  tuned-adm profile gpfs-oci-performance
-fi
+
 
 # Display active profile
 tuned-adm active
 
-# only for client nodes
-echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
+# only for ces nodes
+echo "$thisHost" | grep -q  $cesNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   echo off > /sys/devices/system/cpu/smt/control
 fi
 
-echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
+echo "$thisHost" | grep -q  $cesNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
 
-  # This might be applicable only for compute-n nodes.  Its unclear from recommendations doc.  
+  # This might be applicable only for compute-n nodes.  Its unclear from recommendations doc.
   # require restart for the change to be effective
   echo "* soft nofile 500000" >> /etc/security/limits.conf
   echo "* soft nproc 131072" >> /etc/security/limits.conf
@@ -317,49 +310,11 @@ if [ $? -eq 0 ] ; then
   ulimit -u 131072
 
   # check if the ulimits were updated for the current session
-  ulimit -n 
-  ulimit -u  
+  ulimit -n
+  ulimit -u
 
   echo "ulimit -n 500000 >>  ~/.bash_profile
   echo "ulimit -u 131072 >>  ~/.bash_profile
-
-
-else
-  # Assume its server node
-
-  echo "*   soft    memlock      -1 " >> /etc/security/limits.conf
-  echo "*   hard    memlock      -1 " >> /etc/security/limits.conf
-  echo "*   soft    rss          -1 " >> /etc/security/limits.conf
-  echo "*   hard    rss          -1 " >> /etc/security/limits.conf
-  echo "*   soft    core          -1 " >> /etc/security/limits.conf
-  echo "*   hard    core          -1 " >> /etc/security/limits.conf
-  echo "*   soft    maxlogins     8192 " >> /etc/security/limits.conf
-  echo "*   hard    maxlogins     8192 " >> /etc/security/limits.conf
-  echo "*   soft    stack         -1 " >> /etc/security/limits.conf
-  echo "*   hard    stack         -1 " >> /etc/security/limits.conf
-  echo "*   soft    nproc         2067554 " >> /etc/security/limits.conf
-  echo "*   hard    nproc         2067554 " >> /etc/security/limits.conf
-  echo "* soft nofile 500000 " >> /etc/security/limits.conf
-  echo "* hard nofile 500000 " >> /etc/security/limits.conf
-
-
-  echo "ulimit -l unlimited" >>  ~/.bash_profile
-  echo "ulimit -m unlimited" >>  ~/.bash_profile
-  echo "ulimit -c unlimited" >>  ~/.bash_profile
-  echo "ulimit -s unlimited" >>  ~/.bash_profile
-  echo "ulimit -u 2067554" >>  ~/.bash_profile
-  echo "ulimit -n 500000" >>  ~/.bash_profile
-
-
-echo '#
-# Identify eligible SCSI disks by the absence of a SWAP partition.
-# The only attribute that should possibly be changed is max_sectors_kb,
-# up to a value of 8192, depending on what the SCSI driver and disks support.
-#
-ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*[^0-9]", PROGRAM="/usr/bin/lsblk -rno FSTYPE,MOUNTPOINT,NAME /dev/%k", RESULT!="*SWAP*", ATTR{queue/scheduler}="deadline", ATTR{queue/nr_requests}="256", ATTR{device/queue_depth}="31", ATTR{queue/max_sectors_kb}="8192", ATTR{queue/read_ahead_kb}="0", ATTR{queue/rq_affinity}="2"
-' > /etc/udev/rules.d/99-ibm-spectrum-scale.rules
-# Run this to load the rules
-udevadm control --reload-rules && udevadm trigger
 
 
 fi
@@ -376,9 +331,12 @@ sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' /etc/ssh/sshd_config
 mv /root/.ssh/authorized_keys /root/.ssh/authorized_keys.backup
 cp /home/opc/.ssh/authorized_keys /root/.ssh/authorized_keys
 
-cd /root/.ssh/; cat id_rsa.pub >> authorized_keys ; cd - 
+cd /root/.ssh/; cat id_rsa.pub >> authorized_keys ; cd -
 
-secondNICDomainName=${thisFQDN#*.*}
+#secondNICDomainName=${thisFQDN#*.*}
+secondNICDomainName=${secondNicFQDNHostname#*.*}
+echo $secondNICDomainName
+
 echo "Doing nslookup for nodes"
 ct=1
 if [ $nsdNodeCount -gt 0 ]; then
@@ -407,16 +365,16 @@ echo "Doing nslookup for nodes"
 ct=1;
 if [ $clientNodeCount -gt 0 ]; then
         while [ $ct -le $clientNodeCount ]; do
-                nslk=`nslookup $clientNodeHostnamePrefix$ct`
+                nslk=`nslookup $clientNodeHostnamePrefix${ct}.$secondNICDomainName`
                 ns_ck=`echo -e $?`
                 if [ $ns_ck = 0 ]; then
-                        hname=`nslookup $clientNodeHostnamePrefix$ct | grep Name | gawk '{print $2}'`
+                  hname=`nslookup $clientNodeHostnamePrefix${ct}.$secondNICDomainName | grep Name | gawk '{print $2}'`
                         echo "$hname" >> /tmp/clientnodehosts;
                         echo "$hname" >> /tmp/allnodehosts;
                         ct=$((ct+1));
                 else
                         # sleep 10 seconds and check again - infinite loop
-                        echo "Sleeping for 10 secs and will check again for nslookup $clientNodeHostnamePrefix$ct"
+                        echo "Sleeping for 10 secs and will check again for nslookup $clientNodeHostnamePrefix${ct}.$secondNICDomainName"
                         sleep 10
                 fi
         done;
@@ -426,7 +384,52 @@ else
         echo "no compute nodes configured"
 fi
 
+echo "Doing nslookup for nodes"
+ct=1;
+if [ $cesNodeCount -gt 0 ]; then
+        while [ $ct -le $cesNodeCount ]; do
+                nslk=`nslookup $cesNodeHostnamePrefix${ct}.$secondNICDomainName`
+                ns_ck=`echo -e $?`
+                if [ $ns_ck = 0 ]; then
+                  hname=`nslookup $cesNodeHostnamePrefix${ct}.$secondNICDomainName | grep Name | gawk '{print $2}'`
+                        echo "$hname" >> /tmp/cesnodehosts_nic1;
+                        #echo "$hname" >> /tmp/allnodehosts;
+                        ct=$((ct+1));
+                else
+                        # sleep 10 seconds and check again - infinite loop
+                        echo "Sleeping for 10 secs and will check again for nslookup $cesNodeHostnamePrefix${ct}.$secondNICDomainName"
+                        sleep 10
+                fi
+        done;
+        echo "Found `cat /tmp/cesnodehosts_nic1 | wc -l` nodes";
+        echo `cat /tmp/cesnodehosts_nic1`;
+else
+        echo "no ces nodes configured"
+fi
 
+
+echo "Doing nslookup for nodes"
+ct=1;
+if [ $cesNodeCount -gt 0 ]; then
+        while [ $ct -le $cesNodeCount ]; do
+                nslk=`nslookup $cesNodeHostnamePrefix${ct}`
+                ns_ck=`echo -e $?`
+                if [ $ns_ck = 0 ]; then
+                  hname=`nslookup $cesNodeHostnamePrefix${ct} | grep Name | gawk '{print $2}'`
+                        echo "$hname" >> /tmp/cesnodehosts;
+                        #echo "$hname" >> /tmp/allnodehosts;
+                        ct=$((ct+1));
+                else
+                        # sleep 10 seconds and check again - infinite loop
+                        echo "Sleeping for 10 secs and will check again for nslookup $cesNodeHostnamePrefix${ct}"
+                        sleep 10
+                fi
+        done;
+        echo "Found `cat /tmp/cesnodehosts | wc -l` nodes";
+        echo `cat /tmp/cesnodehosts`;
+else
+        echo "no ces nodes configured"
+fi
 
 if [ ! -f ~/.ssh/known_hosts ]; then
         touch ~/.ssh/known_hosts
@@ -435,71 +438,13 @@ fi
 
 
 
-echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
 
-  # Wait for multi-attach of the Block volumes to complete.  Only way to do that is via OCI CLI preview tool version which is called from Terraform scripts.  It then creates the below file on all nodes of the cluster.
-  while [ ! -f /tmp/multi-attach.complete ]
-  do
-    sleep 60s
-    echo "Waiting for multi-attach via oci-cli to  complete ..."
-  done
-fi 
 
 ## Start SSHD to prevent remote execution during this process
 systemctl stop sshd
 systemctl status sshd
 
 
-# Run the iscsi commands
-# iscsiadm discovery/login
-# loop over various ip's but needs to only attempt disks that actually
-# do/will exist.
-echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
-
-    if [ $blockVolumesPerPool -gt 0 ] ;
-    then
-      echo "Number of disks : $blockVolumesPerPool"
-      for n in `seq 2 $((blockVolumesPerPool+1))`; do
-        echo "Disk $((n-2)), attempting iscsi discovery/login of 169.254.2.$n ..."
-        success=1
-        while [[ $success -eq 1 ]]; do
-          iqn=$(iscsiadm -m discovery -t sendtargets -p 169.254.2.$n:3260 | awk '{print $2}')
-          if  [[ $iqn != iqn.* ]] ;
-          then
-            echo "Error: unexpected iqn value: $iqn"
-            sleep 10s
-            continue
-          else
-            echo "Success for iqn: $iqn"
-            success=0
-          fi
-        done
-        iscsiadm -m node -o update -T $iqn -n node.startup -v automatic
-        iscsiadm -m node -T $iqn -p 169.254.2.$n:3260 -l
-      done
-    else
-      echo "Zero block volumes, not calling iscsiadm, Total Disk Count: $blockVolumesPerPool"
-    fi
-    # Create this file for TF script to proceed with next steps
-    touch /tmp/multi-attach-iscsi.complete
-fi
-
-
-
-echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
-  # Run on all server nodes
-  # To enable custom disk consistent devicepath discovery for nsds.
-  mkdir -p /var/mmfs/etc/
-  if [ -f /tmp/nsddevices ]; then
-    cp /tmp/nsddevices /var/mmfs/etc/
-    chmod +x /var/mmfs/etc/nsddevices
-  else 
-    exit 1
-  fi
-fi
 
 
 
@@ -575,6 +520,17 @@ rpm -Uvh ${rpmDownloadURLPrefix}/kernel-headers-${kernelVersion}.rpm
 
 yum -y install psmisc numad numactl iperf3 dstat iproute automake autoconf git
 #yum -y update
+
+
+# Install additional dependencies for the protocol/ces nodes.
+echo "$thisHost" | grep -q $cesNodeHostnamePrefix
+if [ $? -eq 0 ] ; then
+  # (for Active Directory integration)
+  yum install nfs-utils bind-utils
+  # (for LDAP integration)
+  yum install nfs-utils openldap-client sssd-common sssd-ldap
+fi
+
 
 # For GUI node:
 #yum -y install gpfs.base gpfs.gpl gpfs.msg.en_US gpfs.gskit gpfs.license* gpfs.ext gpfs.crypto gpfs.compression gpfs.adv gpfs.gss.pmsensors gpfs.docs gpfs.java gpfs.kafka gpfs.librdkafka gpfs.gui gpfs.gss.pmcollector

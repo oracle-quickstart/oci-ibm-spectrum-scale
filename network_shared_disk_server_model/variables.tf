@@ -20,8 +20,23 @@ variable "images" {
   }
 }
 
+# Oracle-Linux-7.6-2019.05.28-0
+# https://docs.cloud.oracle.com/iaas/images/image/6180a2cb-be6c-4c78-a69f-38f2714e6b3d/
+variable "imagesOL" {
+  type = map(string)
+  default = {
+    /*
+      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
+      Oracle-provided image "CentOS-7-2018.11.16-0"
+      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
+    */
+    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaaj6pcmnh6y3hdi3ibyxhhflvp3mj2qad4nspojrnxc6pzgn2w3k5q"
+    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaa2wadtmv6j6zboncfobau7fracahvweue6dqipmcd5yj6s54f3wpq"
+  }
+}
+
 # Recommended for HPC workloads - use 2 nsd_nodes_per_pool and 22 block_volumes_per_pool for max throughput
-variable "total_nsd_node_pools" { default="2" }
+variable "total_nsd_node_pools" { default="1" }
 variable "nsd_nodes_per_pool" { default="2" }
 variable "block_volumes_per_pool" { default="2" }
 
@@ -41,6 +56,7 @@ variable "nsd_node" {
   type = "map"
   default = {
     shape = "BM.DenseIO2.52"
+    #shape      = "BM.Standard.E2.64"
     hostname_prefix = "ss-server-"
     }
 }
@@ -58,7 +74,8 @@ variable "nsd" {
 variable "client_node" {
   type = "map"
   default = {
-    shape      = "VM.Standard2.4"
+    shape      = "VM.DenseIO2.24"
+    #shape      = "BM.Standard.E2.64"
     node_count = 2
     hostname_prefix = "ss-compute-"
     }
@@ -86,9 +103,9 @@ variable "spectrum_scale" {
 
 # if high_availability is set to false, then first AD value from the below list will be used to create cluster.
 # if high_availability is set to true, then both values from the below list will be used to create cluster.
-variable "availability_domain" { default = [1,2] }
+#variable "availability_domain" { default = [1,2] }
 #variable "availability_domain" { default = [2,3] }
-#variable "availability_domain" { default = [3,1] }
+variable "availability_domain" { default = [3,1] }
 
 
 locals {
@@ -97,6 +114,8 @@ locals {
   dual_nics = (length(regexall("^BM", "BM.Standard")) > 0 ? true : false)
 
   privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+
 }
 
 # path to download OCI Command Line Tool to perform multi-attach for Block Volumes
@@ -106,28 +125,44 @@ variable "oci_cli_download_url" { default = "http://somehost.com" }
 variable "mgmt_gui_node" {
   type = "map"
   default = {
-    count          = "0"
+    node_count          = "0"
     shape          = "VM.Standard2.4"
+    #shape           = "BM.Standard2.52"
     hostname_prefix = "ss-mgmt-gui-"
   }
 }
 
-variable "protocol_node" {
+# GPFS Management GUI Node Configurations
+variable "mgmt_gui_node1" {
   type = "map"
   default = {
-    count           = "0"
-    shape           = "VM.Standard2.2"
-    hostname_prefix = "ss-protocol-"
+    node_count          = "2"
+    shape          = "BM.DenseIO2.52"
+    #shape           = "BM.Standard2.52"
+    hostname_prefix = "ss-mgmt-gui-"
   }
 }
 
-
-variable "windows_node" {
+variable "ces_node" {
   type = "map"
   default = {
-    count           = "0"
-    shape           = "VM.Standard2.2"
-    hostname_prefix = "ss-windows-"
+    node_count           = "2"
+    #shape           = "BM.Standard2.52"
+    shape           = "BM.DenseIO2.52"
+    hostname_prefix = "ss-ces-"
+  }
+}
+# ss-ces-gpfs-1
+# ss-ces-1
+
+
+variable "windows_smb_client" {
+  type = "map"
+  default = {
+    shape      = "VM.Standard2.4"
+    node_count = 1
+    hostname_prefix = "ss-smb-client-"
+    boot_volume_size_in_gbs = "256"
   }
 }
 
@@ -227,13 +262,34 @@ variable "ssh_private_key_path" {}
 variable "ssh_user" { default = "opc" }
 
 
+# https://docs.cloud.oracle.com/iaas/images/image/09f3e226-681f-405d-bc27-070896f44973/
+# https://docs.cloud.oracle.com/iaas/images/windows-server-2016-vm/
+# Windows-Server-2016-Standard-Edition-VM-Gen2-2019.07.15-0
+variable "w_images" {
+  type = map(string)
+  default = {
+    ap-mumbai-1 = "ocid1.image.oc1.ap-mumbai-1.aaaaaaaabebjqpcnnnd5eojzto7twrw6wphiruxhhvj7nfve7q4cjtkyl7eq"
+    ap-seoul-1 = "ocid1.image.oc1.ap-seoul-1.aaaaaaaavwcdcjgqrsi5antj4lrqnnpmiivijcv22vjvranz5v3ozntgt6na"
+    ap-tokyo-1 = "ocid1.image.oc1.ap-tokyo-1.aaaaaaaahs5qx52v3a4n72o42v3eonrrj2dhwokni3rmv3ym5l32actm6tma"
+    ca-toronto-1 = "ocid1.image.oc1.ca-toronto-1.aaaaaaaa4ktddg54ca2gqvbusjfnpjfk4n4yvkoygpsphfwolapwep7v63qq"
+    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaa4qimrpdogtno7c6h3dh3j66mnpjzpeufn6he6lydim3ftzto7bkq"
+    eu-zurich-1 = "ocid1.image.oc1.eu-zurich-1.aaaaaaaaorf2gr7rdxhhliesbrqx3ktomesmghgdnysqwh5tpfcd2ge2y2za"
+    uk-london-1 = "ocid1.image.oc1.uk-london-1.aaaaaaaao7li5qsxa6wdzysoq4pz7marynzyff57eu4uilv4tgkezs5djvxa"
+    us-ashburn-1 = "ocid1.image.oc1.iad.aaaaaaaaokudtg52d3palj2uq5aeli7rtl3uedbbbwlb7btv4upj34rdhbma"
+    us-langley-1 = "ocid1.image.oc2.us-langley-1.aaaaaaaa6ijhwlviofxlohfhp6um57tn3d2owjqa2amh5v4euhwd5rkysaeq"
+    us-luke-1 = "ocid1.image.oc2.us-luke-1.aaaaaaaaskxgygvujodzad4ghkelizqfjaq5m5sbjvg7ew5mydrkylcofyma"
+    us-phoenix-1 = "ocid1.image.oc1.phx.aaaaaaaae7gdb5asazzy3fx2k4magi3mbvp7natm6xzgbjfyzcvnxns2uvwa"
+  }
+}
+
+
 /*
 See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
 Oracle-provided image "CentOS-7-2019.08.26-0"
 https://docs.cloud.oracle.com/iaas/images/image/ea67dd20-b247-4937-bfff-894962212415/
 */
 /*
-variable "images" {
+variable "imagesCentOS_Latest" {
   type = map(string)
   default = {
     ap-mumbai-1 = "ocid1.image.oc1.ap-mumbai-1.aaaaaaaabfqn5vmh3pg6ynpo6bqdbg7fwruu7qgbvondjic5ccr4atlj4j7q"
