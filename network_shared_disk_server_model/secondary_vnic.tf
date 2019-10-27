@@ -17,12 +17,12 @@ resource "oci_core_vnic_attachment" "secondary_vnic_attachment" {
 }
 
 resource "oci_core_vnic_attachment" "ces_node_secondary_vnic_attachment" {
-   count = (local.dual_nics ? var.ces_node["node_count"] : 0)
+   count = (local.dual_nics_ces_node ? var.ces_node["node_count"] : 0)
    create_vnic_details {
        subnet_id = "${oci_core_subnet.privateb.*.id[0]}"
        assign_public_ip = "false"
-       display_name = "${var.ces_node["hostname_prefix"]}nic1-${format("%01d", count.index+1)}"
-       hostname_label = "${var.ces_node["hostname_prefix"]}nic1-${format("%01d", count.index+1)}"
+       display_name = "${var.ces_node["hostname_prefix"]}${format("%01d", count.index+1)}"
+       hostname_label = "${var.ces_node["hostname_prefix"]}${format("%01d", count.index+1)}"
        # false is default value
        skip_source_dest_check = "false"
    }
@@ -53,3 +53,5 @@ resource "oci_core_vnic_attachment" "ces_node_virtual_ip_pool_secondary_vnic_att
    # set to 1, if you want to use 2nd physical NIC for this VNIC
    nic_index = "0"
 }
+
+

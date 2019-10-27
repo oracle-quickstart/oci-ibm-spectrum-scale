@@ -5,7 +5,7 @@
 
 variable "vpc_cidr" { default = "10.0.0.0/16" }
 
-variable "images" {
+variable "imagesCentos76" {
   type = map(string)
   default = {
     /*
@@ -38,7 +38,7 @@ variable "imagesOL" {
 # Recommended for HPC workloads - use 2 nsd_nodes_per_pool and 22 block_volumes_per_pool for max throughput
 variable "total_nsd_node_pools" { default="1" }
 variable "nsd_nodes_per_pool" { default="2" }
-variable "block_volumes_per_pool" { default="2" }
+variable "block_volumes_per_pool" { default="22" }
 
 
 # One bastion node is enough
@@ -55,8 +55,8 @@ variable "bastion" {
 variable "nsd_node" {
   type = "map"
   default = {
-    shape = "BM.DenseIO2.52"
-    #shape      = "BM.Standard.E2.64"
+    #shape = "BM.DenseIO2.52"
+    shape      = "BM.Standard.E2.64"
     hostname_prefix = "ss-server-"
     }
 }
@@ -66,7 +66,7 @@ variable "nsd_node" {
 variable "nsd" {
   type = "map"
   default = {
-    size = "50"
+    size = "800"
   }
 }
 
@@ -74,9 +74,9 @@ variable "nsd" {
 variable "client_node" {
   type = "map"
   default = {
-    shape      = "VM.DenseIO2.24"
+    shape      = "VM.Standard2.24"
     #shape      = "BM.Standard.E2.64"
-    node_count = 2
+    node_count = 1
     hostname_prefix = "ss-compute-"
     }
 }
@@ -91,7 +91,7 @@ variable "spectrum_scale" {
   type = "map"
   default = {
     version      = "5.0.3.2"
-    download_url = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/DLdr-Gwa1uoI_M5b3mUWjtEsvyTMiKysE6SW9cFkq34/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install"
+    download_url = "change_me_https://objectstorage.us-ashburn-1.oraclecloud.com/p/xxxxxxxxxxxxxxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install"
     block_size = "2M"
     data_replica  = 1
     metadata_replica = 1
@@ -104,57 +104,47 @@ variable "spectrum_scale" {
 # if high_availability is set to false, then first AD value from the below list will be used to create cluster.
 # if high_availability is set to true, then both values from the below list will be used to create cluster.
 #variable "availability_domain" { default = [1,2] }
-#variable "availability_domain" { default = [2,3] }
-variable "availability_domain" { default = [3,1] }
+variable "availability_domain" { default = [2,3] }
+#variable "availability_domain" { default = [3,1] }
 
 
 locals {
   site1 = (var.spectrum_scale["high_availability"] ? var.availability_domain[0] - 1 : var.availability_domain[0] - 1)
   site2 = (var.spectrum_scale["high_availability"] ? var.availability_domain[1] - 1 : var.availability_domain[0] - 1)
-  dual_nics = (length(regexall("^BM", "BM.Standard")) > 0 ? true : false)
+  dual_nics = (length(regexall("^BM", var.nsd_node["shape"])) > 0 ? true : false)
+  dual_nics_ces_node = (length(regexall("^BM", var.ces_node["shape"])) > 0 ? true : false)
+  vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
 
-  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
-  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+  privateSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
 
 }
 
 # path to download OCI Command Line Tool to perform multi-attach for Block Volumes
-variable "oci_cli_download_url" { default = "http://somehost.com" }
+variable "oci_cli_download_url" { default = "change_me_http://somehost.com" }
 
 # GPFS Management GUI Node Configurations
 variable "mgmt_gui_node" {
   type = "map"
   default = {
-    node_count          = "0"
-    shape          = "VM.Standard2.4"
-    #shape           = "BM.Standard2.52"
+    node_count          = "1"
+    shape          = "VM.Standard2.24"
+    #shape         = "BM.Standard2.52"
     hostname_prefix = "ss-mgmt-gui-"
   }
 }
 
-# GPFS Management GUI Node Configurations
-variable "mgmt_gui_node1" {
-  type = "map"
-  default = {
-    node_count          = "2"
-    shape          = "BM.DenseIO2.52"
-    #shape           = "BM.Standard2.52"
-    hostname_prefix = "ss-mgmt-gui-"
-  }
-}
 
 variable "ces_node" {
   type = "map"
   default = {
-    node_count           = "2"
-    #shape           = "BM.Standard2.52"
-    shape           = "BM.DenseIO2.52"
+    node_count      = "2"
+    shape          = "BM.Standard2.52"
+    #shape           = "BM.DenseIO2.52"
     hostname_prefix = "ss-ces-"
   }
 }
-# ss-ces-gpfs-1
-# ss-ces-1
-
 
 variable "windows_smb_client" {
   type = "map"
@@ -288,8 +278,8 @@ See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.orac
 Oracle-provided image "CentOS-7-2019.08.26-0"
 https://docs.cloud.oracle.com/iaas/images/image/ea67dd20-b247-4937-bfff-894962212415/
 */
-/*
-variable "imagesCentOS_Latest" {
+/* imagesCentOS_Latest */
+variable "images" {
   type = map(string)
   default = {
     ap-mumbai-1 = "ocid1.image.oc1.ap-mumbai-1.aaaaaaaabfqn5vmh3pg6ynpo6bqdbg7fwruu7qgbvondjic5ccr4atlj4j7q"
@@ -305,4 +295,4 @@ variable "imagesCentOS_Latest" {
     us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaag7vycom7jhxqxfl6rxt5pnf5wqolksl6onuqxderkqrgy4gsi3hq"
   }
 }
-*/
+

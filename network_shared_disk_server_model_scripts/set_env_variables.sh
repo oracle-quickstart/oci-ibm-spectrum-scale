@@ -1,0 +1,37 @@
+
+echo "
+version=\"$version\"
+downloadUrl=\"$downloadUrl\"
+sshPrivateKey=\"$sshPrivateKey\"
+sshPublicKey=\"$sshPublicKey\"
+totalNsdNodePools=\"$totalNsdNodePools\"
+nsdNodesPerPool=\"$nsdNodesPerPool\"
+nsdNodeCount=\"$nsdNodeCount\"
+nsdNodeHostnamePrefix=\"$nsdNodeHostnamePrefix\"
+clientNodeCount=\"$clientNodeCount\"
+clientNodeHostnamePrefix=\"$clientNodeHostnamePrefix\"
+blockSize=\"$blockSize\"
+dataReplica=\"$dataReplica\"
+metadataReplica=\"$metadataReplica\"
+gpfsMountPoint=\"$gpfsMountPoint\"
+highAvailability=\"$highAvailability\"
+sharedDataDiskCount=\"$sharedDataDiskCount\"
+blockVolumesPerPool=\"$blockVolumesPerPool\"
+installerNode=\"$installerNode\"
+vcnFQDN=\"$vcnFQDN\"
+privateSubnetsFQDN=\"$privateSubnetsFQDN\"
+privateBSubnetsFQDN=\"$privateBSubnetsFQDN\"
+companyName=\"$companyName\"
+companyID=\"$companyID\"
+countryCode=\"$countryCode\"
+emailaddress=\"$emailaddress\"
+cesNodeCount=\"$cesNodeCount\"
+cesNodeHostnamePrefix=\"$cesNodeHostnamePrefix\"
+mgmtGuiNodeCount=\"$mgmtGuiNodeCount\"
+mgmtGuiNodeHostnamePrefix=\"$mgmtGuiNodeHostnamePrefix\"
+privateProtocolSubnetFQDN=\"$privateProtocolSubnetFQDN\"
+" > /tmp/gpfs_env_variables.sh
+
+# we might need this for BM shapes for core OS services to be ready
+sleep 60s
+

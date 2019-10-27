@@ -1,8 +1,9 @@
 
 resource "oci_core_instance" "mgmt_gui_node" {
-  count               = "${var.mgmt_gui_node1["node_count"]}"
-  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.mgmt_gui_node1["node_count"] / 2)) ? local.site1 : local.site2)],"name")}"
+  count               = "${var.mgmt_gui_node["node_count"]}"
+  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.mgmt_gui_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")}"
 
+  fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.mgmt_gui_node["hostname_prefix"]}${format("%01d", count.index+1)}"
   hostname_label      = "${var.mgmt_gui_node["hostname_prefix"]}${format("%01d", count.index+1)}"
@@ -37,7 +38,8 @@ resource "oci_core_instance" "mgmt_gui_node" {
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
         "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
-        "privateSubnetsFQDN=\"${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com\"",
+        "vcnFQDN=\"${local.vcn_fqdn}\"",
+        "privateSubnetsFQDN=\"${local.privateSubnetsFQDN}\"",
         "privateBSubnetsFQDN=\"${local.privateBSubnetsFQDN}\"",
         "companyName=\"${var.callhome["company_name"]}\"",
         "companyID=\"${var.callhome["company_id"]}\"",
@@ -45,11 +47,18 @@ resource "oci_core_instance" "mgmt_gui_node" {
         "emailaddress=\"${var.callhome["emailaddress"]}\"",
         "cesNodeCount=\"${var.ces_node["node_count"]}\"",
         "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
-        "mgmtGuiNodeCount=\"${var.mgmt_gui_node1["node_count"]}\"",
-        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node1["hostname_prefix"]}\"",
+        "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
+        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
         "privateProtocolSubnetFQDN=\"${local.private_protocol_subnet_fqdn}\"",
         file("${var.scripts_directory}/firewall.sh"),
-        file("${var.scripts_directory}/mgmt_gui_install.sh")
+        file("${var.scripts_directory}/set_env_variables.sh"),
+        file("${var.scripts_directory}/update_resolv_conf.sh"),
+        file("${var.scripts_directory}/configure_nic.sh"),
+        file("${var.scripts_directory}/block_volume_discovery.sh"),
+        file("${var.scripts_directory}/infra_tuning.sh"),
+        file("${var.scripts_directory}/passwordless_ssh.sh"),
+        file("${var.scripts_directory}/install_spectrum_scale.sh")
+#        file("${var.scripts_directory}/mgmt_gui_install.sh")
       )))}"
     }
 
@@ -61,3 +70,86 @@ resource "oci_core_instance" "mgmt_gui_node" {
 
 
 
+/* Remote exec to deploy gpfs software/rpms on mgmt_gui nodes */
+resource "null_resource" "deploy_gpfs_on_mgmt_gui_nodes" {
+  depends_on = [
+    oci_core_instance.mgmt_gui_node,
+    null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
+  ]
+  count = "${var.mgmt_gui_node["node_count"]}"
+  triggers = {
+    instance_ids = "oci_core_instance.mgmt_gui_node.*.id"
+  }
+
+  provisioner "file" {
+    source      = "${var.scripts_directory}/"
+    destination = "/tmp/"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.mgmt_gui_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = var.ssh_private_key
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = var.ssh_private_key
+    }
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.mgmt_gui_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = var.ssh_private_key
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = var.ssh_private_key
+    }
+    inline = [
+      "set -x",
+      "echo about to run /tmp/nodes-cloud-init-complete-status-check.sh",
+      "sudo -s bash -c 'set -x && chmod 777 /tmp/*.sh'",
+      "sudo -s bash -c 'set -x && /tmp/nodes-cloud-init-complete-status-check.sh'",
+      "sudo -s bash -c 'set -x && /tmp/deploy_spectrum_scale.sh'",
+    ]
+  }
+}
+
+
+
+
+/* Remote exec to configure mgmt_gui service on mgmt_gui node 1 */
+resource "null_resource" "configure_mgmt_gui_service" {
+  depends_on = [
+    oci_core_instance.mgmt_gui_node,
+    null_resource.create_gpfs_cluster,
+    null_resource.configure_ces_service
+  ]
+  count = 1
+  triggers = {
+    instance_ids = "oci_core_instance.mgmt_gui_node.*.id"
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.mgmt_gui_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = var.ssh_private_key
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = var.ssh_private_key
+    }
+    inline = [
+      "set -x",
+      "sudo -s bash -c 'set -x && chmod 777 /tmp/*.sh'",
+      "sudo su -l -c 'set -x && /tmp/configure_mgmt_gui.sh'",
+    ]
+  }
+}

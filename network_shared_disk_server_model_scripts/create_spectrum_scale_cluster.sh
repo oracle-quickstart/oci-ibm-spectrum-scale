@@ -8,17 +8,19 @@ source /tmp/gpfs_env_variables.sh
 echo "$thisHost" | grep -q -w $installerNode
 if [ $? -eq 0 ] ; then
   rm  /root/node.stanza
-  count=0
+#  count=0
   for hname in `cat /tmp/allnodehosts` ; do
     echo "$hname" | grep -q $nsdNodeHostnamePrefix
     if [ $? -eq 0 ] ; then
-      if [ $count -lt 3 ]; then
+#     if [ $count -lt 3 ]; then
         echo "${hname}:quorum-manager" >> /root/node.stanza
-      else
-        echo "${hname}" >> /root/node.stanza
-      fi
-      count=$((count+1))
-    else
+#     else
+#        echo "${hname}" >> /root/node.stanza
+#     fi
+#      count=$((count+1))
+    fi
+    echo "$hname" | grep -q $clientNodeHostnamePrefix
+    if [ $? -eq 0 ] ; then
       echo "${hname}" >> /root/node.stanza
     fi
   done
@@ -125,14 +127,20 @@ if [ $? -eq 0 ] ; then
   mmchconfig pagepool=64G,maxFilesToCache=1M -N clientNodes
 
 
-  mmstartup -a
+# mmstartup -a
   # or
-# mmstartup -N nsdNodes
-# while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount)) ] ; do echo "waiting for server nodes of cluster to start ..." ; sleep 10s; done;
-# mmstartup -N clientNodes
-# while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
+mmstartup -N nsdNodes
+while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount)) ] ; do echo "waiting for server nodes of cluster to start ..." ; sleep 10s; done;
 
-  while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for cluster to start ..." ; sleep 10s; done;
+mmumount fs1 -a
+sleep 15s
+mmmount fs1 -a
+sleep 15s
+
+mmstartup -N clientNodes
+while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
+
+#  while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for cluster to start ..." ; sleep 10s; done;
 
 
   # Consolidate into a single file,  since both failure groups needs to be in the same file, for the command the work.
@@ -162,8 +170,53 @@ if [ $? -eq 0 ] ; then
   sleep 15s
   df -h
 
+### CES Nodes ###
+## mmaddnode needs to be ran on a node which is already part of the cluster
+# Step1.  Add the nodes to existing GPFS cluster.
+# Step 2.  Assign proper license to the newly added nodes.
+# Step 3.  Assign the quorum role to one of protocol node and the manager role to both nodes.
+for node in `cat /tmp/cesnodehosts` ; do
+  mmaddnode -N $node
+  mmchlicense server --accept -N $node
+  mmchnode --manager -N $node
+  mmstartup -N $node
+done
+
+# TODO - check deamon is active.  while loop
+while [ `mmgetstate -a  | grep "$cesNodeHostnamePrefix" | grep "active" | wc -l` -lt $((cesNodeCount)) ] ; do echo "waiting for ces nodes of cluster to start ..." ; sleep 10s; done;
+
+
+# To ensure pmsensors is installed on all nodes.
+#   mmdsh -N all "rpm -qa | grep gpfs.gss.pmsensors"
+# To ensure pmcollector is installed on only GUI mgmt nodes.
+#   mmdsh -N all "rpm -qa | grep gpfs.gss.pmcollector"
+
+# Step1.  Add the nodes to existing GPFS cluster.
+# Step 2.  Assign proper license to the newly added nodes.
+# Step 3.  Configure pagepool for the GUI nodes.
+for node in `cat /tmp/mgmtguinodehosts` ; do
+  mmaddnode -N $node
+  mmchlicense client --accept -N $node
+  mmchconfig pagepool=32G -N $node
+done
+
 fi
 
 exit 0;
+
+# NOTES #
+# Correct GPFS restart procedure
+#   mmumount fs1 -a
+#   mmshutdown -a
+#   mmstartup -N nsdNodes
+#   while [ `mmgetstate -a | grep "active" | wc -l` -lt $((nsdNodeCount)) ] ; do echo "waiting for server nodes of cluster to start ..." ; sleep 10s; done;
+
+#   mmumount fs1 -a
+#   sleep 15s
+#   mmmount fs1 -a
+#   sleep 15s
+
+#   mmstartup -N clientNodes
+#   while [ `mmgetstate -a | grep "active" | wc -l` -lt $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
 
 

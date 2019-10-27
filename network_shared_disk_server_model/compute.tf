@@ -6,6 +6,7 @@ locals {
 resource "oci_core_instance" "nsd_node" {
   count               = local.nsd_node_count
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (local.nsd_node_count / 2)) ? local.site1 : local.site2)],"name")}"
+  fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}"
   hostname_label      = "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}"
@@ -40,14 +41,27 @@ resource "oci_core_instance" "nsd_node" {
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
         "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
-        "privateSubnetsFQDN=\"${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com\"",
+        "vcnFQDN=\"${local.vcn_fqdn}\"",
+        "privateSubnetsFQDN=\"${local.privateSubnetsFQDN}\"",
         "privateBSubnetsFQDN=\"${local.privateBSubnetsFQDN}\"",
         "companyName=\"${var.callhome["company_name"]}\"",
         "companyID=\"${var.callhome["company_id"]}\"",
         "countryCode=\"${var.callhome["country_code"]}\"",
         "emailaddress=\"${var.callhome["emailaddress"]}\"",
+        "cesNodeCount=\"${var.ces_node["node_count"]}\"",
+        "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
+        "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
+        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
+        "privateProtocolSubnetFQDN=\"${local.private_protocol_subnet_fqdn}\"",
         file("${var.scripts_directory}/firewall.sh"),
-        file("${var.scripts_directory}/install.sh")
+        file("${var.scripts_directory}/set_env_variables.sh"),
+        file("${var.scripts_directory}/update_resolv_conf.sh"),
+        file("${var.scripts_directory}/configure_nic.sh"),
+        file("${var.scripts_directory}/block_volume_discovery.sh"),
+        file("${var.scripts_directory}/infra_tuning.sh"),
+        file("${var.scripts_directory}/passwordless_ssh.sh"),
+        file("${var.scripts_directory}/install_spectrum_scale.sh")
+#       file("${var.scripts_directory}/install.sh")
       )))}"
     }
 
@@ -62,11 +76,12 @@ resource "oci_core_instance" "client_node" {
   count               = "${var.client_node["node_count"]}"
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.client_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")}"
 
+  fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.client_node["hostname_prefix"]}${format("%01d", count.index+1)}"
   hostname_label      = "${var.client_node["hostname_prefix"]}${format("%01d", count.index+1)}"
   shape               = "${var.client_node["shape"]}"
-  subnet_id           = (local.dual_nics ? oci_core_subnet.privateb.*.id[0] : oci_core_subnet.private.*.id[0])
+  subnet_id           = oci_core_subnet.privateb.*.id[0]
 
   source_details {
     source_type = "image"
@@ -96,14 +111,27 @@ resource "oci_core_instance" "client_node" {
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
         "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
-        "privateSubnetsFQDN=\"${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com ${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com\"",
+        "vcnFQDN=\"${local.vcn_fqdn}\"",
+        "privateSubnetsFQDN=\"${local.privateSubnetsFQDN}\"",
         "privateBSubnetsFQDN=\"${local.privateBSubnetsFQDN}\"",
         "companyName=\"${var.callhome["company_name"]}\"",
         "companyID=\"${var.callhome["company_id"]}\"",
         "countryCode=\"${var.callhome["country_code"]}\"",
         "emailaddress=\"${var.callhome["emailaddress"]}\"",
+        "cesNodeCount=\"${var.ces_node["node_count"]}\"",
+        "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
+        "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
+        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
+        "privateProtocolSubnetFQDN=\"${local.private_protocol_subnet_fqdn}\"",
         file("${var.scripts_directory}/firewall.sh"),
-        file("${var.scripts_directory}/install.sh")
+        file("${var.scripts_directory}/set_env_variables.sh"),
+        file("${var.scripts_directory}/update_resolv_conf.sh"),
+        file("${var.scripts_directory}/configure_nic.sh"),
+        file("${var.scripts_directory}/block_volume_discovery.sh"),
+        file("${var.scripts_directory}/infra_tuning.sh"),
+        file("${var.scripts_directory}/passwordless_ssh.sh"),
+        file("${var.scripts_directory}/install_spectrum_scale.sh")
+#       file("${var.scripts_directory}/install.sh")
       )))}"
     }
 
@@ -119,6 +147,7 @@ resource "oci_core_instance" "client_node" {
 resource "oci_core_instance" "bastion" {
   count = "${var.bastion["node_count"]}"
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[((count.index % 2 == 0) ? local.site1 : local.site2)],"name")}"
+  fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.bastion["hostname_prefix"]}${format("%01d", count.index+1)}"
   shape               = "${var.bastion["shape"]}"
@@ -151,11 +180,11 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
   triggers = {
     instance_ids = "oci_core_instance.client_node.*.id"
   }
-
+  /*
   provisioner "local-exec" {
     command = "echo \"wait until reboot completes\"; sleep 120s;"
   }
-
+  */
   provisioner "file" {
     source      = "${var.scripts_directory}/nodes-cloud-init-complete-status-check.sh"
     destination = "/tmp/nodes-cloud-init-complete-status-check.sh"
@@ -221,10 +250,11 @@ resource "null_resource" "deploy_gpfs_on_nsd_server_nodes" {
   triggers = {
     instance_ids = "oci_core_instance.nsd_node.*.id"
   }
-
+  /*
   provisioner "local-exec" {
     command = "echo \"wait until reboot completes\"; sleep 300s;"
   }
+  */
 
   provisioner "file" {
     source      = "${var.scripts_directory}/"
@@ -271,7 +301,9 @@ resource "null_resource" "create_gpfs_cluster" {
     oci_core_instance.nsd_node,
     null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
     null_resource.deploy_gpfs_on_nsd_server_nodes,
-    null_resource.deploy_gpfs_on_client_nodes
+    null_resource.deploy_gpfs_on_client_nodes,
+    null_resource.deploy_gpfs_on_ces_nodes,
+    null_resource.deploy_gpfs_on_mgmt_gui_nodes
   ]
   count = 1
   triggers = {

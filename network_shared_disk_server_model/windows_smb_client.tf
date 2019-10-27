@@ -67,6 +67,8 @@ data "template_cloudinit_config" "cloudinit_config" {
 resource "oci_core_instance" "windows_smb_client" {
   count = "${var.windows_smb_client["node_count"]}"
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[((count.index % 2 == 0) ? local.site1 : local.site2)],"name")}"
+
+  fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.windows_smb_client["hostname_prefix"]}${format("%01d", count.index + 1)}"
   hostname_label      = "${var.windows_smb_client["hostname_prefix"]}${format("%01d", count.index + 1)}"
@@ -89,6 +91,7 @@ resource "oci_core_instance" "windows_smb_client" {
 
 }
 
+
 data "oci_core_instance_credentials" "InstanceCredentials" {
   instance_id = "${oci_core_instance.windows_smb_client.*.id[0]}"
 }
@@ -98,6 +101,7 @@ data "oci_core_instance_credentials" "InstanceCredentials" {
 ##########
 # Outputs
 ##########
+
 output "Username" {
   value = ["${data.oci_core_instance_credentials.InstanceCredentials.username}"]
 }
