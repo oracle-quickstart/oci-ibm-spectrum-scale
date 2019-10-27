@@ -45,7 +45,6 @@ fi
 
 echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
-  # Run on all server nodes
   # To enable custom disk consistent devicepath discovery for nsds.
   mkdir -p /var/mmfs/etc/
   if [ -f /tmp/nsddevices ]; then

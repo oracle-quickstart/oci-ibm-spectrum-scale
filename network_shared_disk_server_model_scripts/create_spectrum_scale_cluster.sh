@@ -8,16 +8,10 @@ source /tmp/gpfs_env_variables.sh
 echo "$thisHost" | grep -q -w $installerNode
 if [ $? -eq 0 ] ; then
   rm  /root/node.stanza
-#  count=0
   for hname in `cat /tmp/allnodehosts` ; do
     echo "$hname" | grep -q $nsdNodeHostnamePrefix
     if [ $? -eq 0 ] ; then
-#     if [ $count -lt 3 ]; then
         echo "${hname}:quorum-manager" >> /root/node.stanza
-#     else
-#        echo "${hname}" >> /root/node.stanza
-#     fi
-#      count=$((count+1))
     fi
     echo "$hname" | grep -q $clientNodeHostnamePrefix
     if [ $? -eq 0 ] ; then
@@ -28,8 +22,6 @@ if [ $? -eq 0 ] ; then
 
   mmcrcluster -N node.stanza -r /usr/bin/ssh -R /usr/bin/scp -C ss-demo01.privateb2.ibmssvcnv3.oraclevcn.com -A
   sleep 30s
-
-
 
   diskArray=(b c d e f g h i j k l m n o p q r s t u v w x y z aa ab ac ad ae af ag)
 
@@ -56,7 +48,7 @@ if [ $? -eq 0 ] ; then
   do
     echo $node
     if [ $node -eq $endIndex ]; then
-      # no comma at the end
+      # no comma
       command="${command}${node}"
     else
       command="${command}${node},"
@@ -83,7 +75,6 @@ if [ $? -eq 0 ] ; then
     for i in `seq 1 $blockVolumesPerPool`;
     do
       if [ $((i % 2)) -eq 0 ]; then
-        # ${((poolIndex-1*nsdNodesPerPool+1))}"
         primaryServer="${nsdNodeHostnamePrefix}$((((poolIndex-1)*nsdNodesPerPool)+2))"
         secondaryServer="${nsdNodeHostnamePrefix}$((((poolIndex-1)*nsdNodesPerPool)+1))"
       else
@@ -127,8 +118,7 @@ if [ $? -eq 0 ] ; then
   mmchconfig pagepool=64G,maxFilesToCache=1M -N clientNodes
 
 
-# mmstartup -a
-  # or
+
 mmstartup -N nsdNodes
 while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount)) ] ; do echo "waiting for server nodes of cluster to start ..." ; sleep 10s; done;
 
@@ -139,8 +129,6 @@ sleep 15s
 
 mmstartup -N clientNodes
 while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
-
-#  while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for cluster to start ..." ; sleep 10s; done;
 
 
   # Consolidate into a single file,  since both failure groups needs to be in the same file, for the command the work.
@@ -170,19 +158,15 @@ while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNode
   sleep 15s
   df -h
 
-### CES Nodes ###
+### CES Nodes
 ## mmaddnode needs to be ran on a node which is already part of the cluster
-# Step1.  Add the nodes to existing GPFS cluster.
-# Step 2.  Assign proper license to the newly added nodes.
-# Step 3.  Assign the quorum role to one of protocol node and the manager role to both nodes.
+# Step.  Assign the quorum role to one of protocol node and the manager role to both nodes.
 for node in `cat /tmp/cesnodehosts` ; do
   mmaddnode -N $node
   mmchlicense server --accept -N $node
   mmchnode --manager -N $node
   mmstartup -N $node
 done
-
-# TODO - check deamon is active.  while loop
 while [ `mmgetstate -a  | grep "$cesNodeHostnamePrefix" | grep "active" | wc -l` -lt $((cesNodeCount)) ] ; do echo "waiting for ces nodes of cluster to start ..." ; sleep 10s; done;
 
 

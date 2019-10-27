@@ -1,10 +1,10 @@
 
 
-### download spectrum scale
+# download spectrum scale
 cd /tmp/
 curl -O $downloadUrl -s
 
-# logic to ensure if download fails due to intermittent error, it re-downloads.
+# logic to ensure if download fails due to intermittent error
 while [ $? -ne 0 ]; do
   rm -rf /tmp/Spectrum_Scale_Data_Management-*
   curl -O $downloadUrl -s
@@ -72,7 +72,7 @@ rpm -Uvh ${rpmDownloadURLPrefix}/kernel-headers-${kernelVersion}.rpm
 
 yum -y install psmisc numad numactl iperf3 dstat iproute automake autoconf git
 
-# Install additional dependencies for the protocol/ces nodes.
+# for the protocol/ces nodes.
 echo "$thisHost" | grep -q $cesNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   # (for Active Directory integration)

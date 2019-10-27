@@ -1,4 +1,4 @@
-#   configure 2nd NIC   #
+#   configure 2nd NIC
 echo `hostname` | grep -q "$clientNodeHostnamePrefix\|$mgmtGuiNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
   thisFQDN=`hostname --fqdn`
@@ -52,13 +52,13 @@ MTU=9000
 NM_CONTROLLED=no
 " > /etc/sysconfig/network-scripts/ifcfg-$interface
 
-    # Check if Intel or AMD
+    # Intel or AMD
     lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
     if [ $? -eq 0 ];  then
       echo "do nothing"
     else
       echo Intel
-      # The below are only applicable to Intel shapes, it degrades n/w performance on AMD
+      # For Intel shapes, it degrades n/w performance on AMD
       echo "ETHTOOL_OPTS=\"-G ${interface} rx 2047 tx 2047 rx-jumbo 8191; -L ${interface} combined 74\"" >> /etc/sysconfig/network-scripts/ifcfg-$interface
     fi
 
@@ -66,8 +66,15 @@ NM_CONTROLLED=no
     ifdown $interface
     ifup $interface
 
-    ip route ; ifconfig ; route ; ip addr ;
     # Add logic to ensure the below is not empty
+    test=`nslookup $privateIp | grep -q "name = "`
+    while [ $? -ne 0 ];
+    do
+      echo "Waiting for nslookup..."
+      sleep 10s
+      test=`nslookup $privateIp | grep -q "name = "`
+    done
+
     secondNicFQDNHostname=`nslookup $privateIp | grep "name = " | gawk -F"=" '{ print $2 }' | sed  "s|^ ||g" | sed  "s|\.$||g"`
     thisFQDN=$secondNicFQDNHostname
     thisHost=${thisFQDN%%.*}
@@ -82,8 +89,7 @@ NM_CONTROLLED=no
   fi
 fi
 
-
-#  configure 1st NIC for performance
+#  configure 1st NIC
 ifconfig | grep "^eno2:"
 if [ $? -eq 0 ] ; then
   primaryNICInterface="eno2"
@@ -102,15 +108,15 @@ if [ $? -eq 0 ] ; then
   primaryNICInterface="eno1"
 fi
 
-# Check Intel or AMD
+# Intel or AMD
 lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
 if [ $? -eq 0 ];  then
   echo "do nothing"
 else
   echo Intel
-  # The below are only applicable to Intel shapes, it degrades n/w performance on AMD
+  # For Intel shapes, it degrades n/w performance on AMD
   echo "ethtool -G $primaryNICInterface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
-  # the below change applies to BM shapes and fails on VM shapes, but harmless to still run it
+  # For BM shapes only and fails on VM shapes, but harmless to still run it
   echo "ethtool -L $primaryNICInterface combined 74" >> /etc/rc.local
   chmod +x /etc/rc.local
   # node needs to be rebooted for rc.local change to be effective.  This is only required for tuning NIC for better performance

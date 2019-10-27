@@ -77,7 +77,7 @@ do_ssh_keyscan () {
   fi
 }
 
-### passwordless ssh setup ###
+### passwordless ssh setup
 for host_fqdn in `cat /tmp/allnodehosts` ; do
   host=$host_fqdn
   do_ssh_keyscan

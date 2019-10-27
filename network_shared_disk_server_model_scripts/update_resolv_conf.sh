@@ -3,7 +3,7 @@ mv /etc/resolv.conf /etc/resolv.conf.backup
 echo "search ${vcnFQDN} ${privateBSubnetsFQDN} ${privateSubnetsFQDN} ${privateProtocolSubnetFQDN}" > /etc/resolv.conf
 echo "nameserver 169.254.169.254" >> /etc/resolv.conf
 
-# The below is to ensure any custom change to /etc/hosts and /etc/resolv.conf will not be overwritten with data from metaservice, but dhclient will still overwrite /etc/resolv.conf.  Hence do the additional step using chattr command.
+# The below is to ensure any custom change to hosts and resolv.conf will not be overwritten with data from metaservice, but dhclient will still overwrite resolv.conf.  
 if [ -z /etc/oci-hostname.conf ]; then
   echo "PRESERVE_HOSTINFO=2" > /etc/oci-hostname.conf
 else
