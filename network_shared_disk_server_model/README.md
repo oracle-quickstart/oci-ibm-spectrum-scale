@@ -34,13 +34,13 @@ This is optional, but you can update the variables.tf to change compute shapes t
 
 | Node Type | Mandatory | Node Shape (Recommended for max throughput) | Node Count (Production minimum) | Node Shape (Minimum) | Node Count (Minimum) | Comments |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `NSD server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 | 2 | VM.Standard2.8 | 2 | Bare metal nodes with 2 physical NIC's for Production. |
-| `CES server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 | 2 | - | 1 | Bare metal nodes with 2 physical NIC's for Production. Use for NFS, SMB, Object access and Transparent Cloud Tiering |
-| `MGMT GUI server` | Mandatory | VM.Standard2.16 or higher | 1 | VM.Standard2.8 | 1 | Add 2, if you want HA for mgmt GUI node |
+| `NSD server` | Yes | BM.Standard2.52 or BM.Standard.E2.64 | 2 | VM.Standard2.8 | 2 | Bare metal nodes with 2 physical NIC's for Production. |
+| `CES server` | No | BM.Standard2.52 or BM.Standard.E2.64 | 2 | - | 0 | Use 1 for testing, 2 for prod, but this node is optional. Bare metal nodes with 2 physical NIC's for Production. Use only if access via NFS, SMB, Object access and Transparent Cloud Tiering is required |
+| `MGMT GUI server` | No | VM.Standard2.16 or higher | 1 | VM.Standard2.8 | 0 | Add 2, if you want HA for mgmt GUI node |
 | `Client server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 or VM.Standard2.24 | 1 | VM.Standard2.8 | 1 | Throughput received will depend on shape selected. You can have many clients |
 | `Bastion server` | Mandatory | VM.Standard2.1 / VM.Standard.E2.1 or higher | 1 | - | 1 | Required |
-| `Windows SMB client` | Mandatory | VM.Standard2.4 | 1 | VM.Standard2.4 | 1 | Template builds one just for testing, optional |
-| `NFS client` | Mandatory | Use bastion node for testing | 1 | - | - | Template builds one just for testing, optional |
+| `Windows SMB client` | No | VM.Standard2.4 | 1 | VM.Standard2.4 | 0 | Template builds one just for testing, optional |
+| `NFS client` | No | Use bastion node for testing, so need for seperate node | 1 | - | 0 | Template builds one just for testing, optional |
 
 
 
