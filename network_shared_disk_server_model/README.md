@@ -32,6 +32,18 @@ Now, you'll want a local copy of this repo.  You can make that with the commands
 ## Update variables.tf file (optional)
 This is optional, but you can update the variables.tf to change compute shapes to use for NSD servers, dataReplica, # of NSD disks, # of NSD and client nodes and and various other values. 
 
+| Node Type | Mandatory | Node Shape (Recommended for max throughput) | Node Count (Production minimum) | Node Shape (Minimum) | Node Count (Minimum) | Comments |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `NSD server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 | 2 | VM.Standard2.8 | 2 | Bare metal nodes with 2 physical NIC's for Production. |
+| `CES server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 | 2 | - | 1 | Bare metal nodes with 2 physical NIC's for Production. Use for NFS, SMB, Object access and Transparent Cloud Tiering |
+| `MGMT GUI server` | Mandatory | VM.Standard2.16 or higher | 1 | VM.Standard2.8 | 1 | Add 2, if you want HA for mgmt GUI node |
+| `Client server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 or VM.Standard2.24 | 1 | VM.Standard2.8 | 1 | Throughput received will depend on shape selected. You can have many clients |
+| `Bastion server` | Mandatory | VM.Standard2.1 / VM.Standard.E2.1 or higher | 1 | - | 1 | Required |
+| `Windows SMB client` | Mandatory | VM.Standard2.4 | 1 | VM.Standard2.4 | 1 | Template builds one just for testing, optional |
+| `NFS client` | Mandatory | Use bastion node for testing | 1 | - | - | Template builds one just for testing, optional |
+
+
+
 
 ## Deployment & Post Deployment
 
