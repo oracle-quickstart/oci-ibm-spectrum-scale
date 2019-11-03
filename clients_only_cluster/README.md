@@ -1,5 +1,5 @@
 # Spectrum Scale - Clients Only Cluster on OCI
-This Terrrafom template deploys a Spectrum Scale clients nodes only cluster which is typically used in production to seperate the HPC client nodes who access a Spectrum Scale File System cluster (Storage Cluster).  Logically seperating the Client nodes cluster from Storage cluster allows customer to manage their HPC compute/client node clusters seperately from their Spectrum Scale Storage cluster.  
+This Terrrafom template deploys a Spectrum Scale clients onlynodes cluster which is typically used in production to seperate the HPC client nodes who access a Spectrum Scale File System cluster (Storage Cluster).  Logically seperating the Client nodes cluster from Storage cluster allows customer to manage their HPC compute/client node clusters seperately from their Spectrum Scale Storage cluster.  
 
 Since its very common in HPC world to only spin up/spin down a cluster, the above approach allows customer to install Spectrum Scale clients on their HPC client nodes and then remote mount the Spectrum Scale Storage cluster to access file system. 
 
@@ -7,7 +7,7 @@ Since its very common in HPC world to only spin up/spin down a cluster, the abov
 ## Client Only Nodes Cluster architecture
 
 ### Single AD 
-![](../images/network_shared_disk_server_model/01a-single-AD-architecture.png)
+![](../images/network_shared_disk_server_model/X01a-single-AD-architecture.png)
 
 
 ## Prerequisites
@@ -44,16 +44,5 @@ Deploy using standard Terraform commands
 ## Output for various GPFS commands
 
 ![](../images/network_shared_disk_server_model/X03-mm-commands.png)
-
-## Spectrum Scale Management GUI Interface
-
-### Metrics
-![](../images/network_shared_disk_server_model/X04-gui-charts.png)
-
-### Dashboard
-![](../images/network_shared_disk_server_model/X05-gui-dashboard.png)
-
-### Throughput
-![](../images/network_shared_disk_server_model/X06-gui-throughput.png)
 
 
