@@ -93,7 +93,9 @@ resource "oci_core_instance" "windows_smb_client" {
 
 
 data "oci_core_instance_credentials" "InstanceCredentials" {
-  instance_id = "${oci_core_instance.windows_smb_client.*.id[0]}"
+  # depends_on was added as a workaround to TF issue with empty oci_core_instance.windows_smb_client.*.id[0]
+  depends_on =  [ oci_core_instance.windows_smb_client ]  
+  instance_id = (var.windows_smb_client["node_count"] > 0 ? oci_core_instance.windows_smb_client.*.id[0] : "")
 }
 
 
@@ -111,10 +113,11 @@ output "Password" {
 }
 
 output "InstancePublicIP" {
-  value = ["${oci_core_instance.windows_smb_client.*.public_ip[0]}"]
+  value = [ (var.windows_smb_client["node_count"] > 0 ? oci_core_instance.windows_smb_client.*.public_ip[0] : "") ]
+  # "${oci_core_instance.windows_smb_client.*.public_ip[0]}"]
 }
 
 output "InstancePrivateIP" {
-  value = ["${oci_core_instance.windows_smb_client.*.private_ip[0]}"]
+  value = [ (var.windows_smb_client["node_count"] > 0 ? oci_core_instance.windows_smb_client.*.private_ip[0] : "") ]
 }
 

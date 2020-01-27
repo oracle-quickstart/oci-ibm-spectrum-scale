@@ -38,7 +38,7 @@ variable "imagesOL" {
 # Recommended for HPC workloads - use 2 nsd_nodes_per_pool and 22 block_volumes_per_pool for max throughput
 variable "total_nsd_node_pools" { default="1" }
 variable "nsd_nodes_per_pool" { default="2" }
-variable "block_volumes_per_pool" { default="22" }
+variable "block_volumes_per_pool" { default="10" }
 
 
 # One bastion node is enough
@@ -56,7 +56,7 @@ variable "nsd_node" {
   type = "map"
   default = {
     #shape = "BM.DenseIO2.52"
-    shape      = "BM.Standard.E2.64"
+    shape      = "BM.Standard2.52"
     hostname_prefix = "ss-server-"
     }
 }
@@ -74,9 +74,9 @@ variable "nsd" {
 variable "client_node" {
   type = "map"
   default = {
-    shape      = "VM.Standard2.24"
+    shape      = "BM.Standard2.52"
     #shape      = "BM.Standard.E2.64"
-    node_count = 1
+    node_count = 2
     hostname_prefix = "ss-compute-"
     }
 }
@@ -90,8 +90,8 @@ variable "client_node" {
 variable "spectrum_scale" {
   type = "map"
   default = {
-    version      = "5.0.3.2"
-    download_url = "change_me_https://objectstorage.us-ashburn-1.oraclecloud.com/p/xxxxxxxxxxxxxxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install"
+    version      = "5.0.3.3"
+    download_url = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/xxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install"
     block_size = "2M"
     data_replica  = 1
     metadata_replica = 1
@@ -104,8 +104,8 @@ variable "spectrum_scale" {
 # if high_availability is set to false, then first AD value from the below list will be used to create cluster.
 # if high_availability is set to true, then both values from the below list will be used to create cluster.
 #variable "availability_domain" { default = [1,2] }
-variable "availability_domain" { default = [2,3] }
-#variable "availability_domain" { default = [3,1] }
+#variable "availability_domain" { default = [2,3] }
+variable "availability_domain" { default = [3,1] }
 
 
 locals {
@@ -129,7 +129,7 @@ variable "mgmt_gui_node" {
   type = "map"
   default = {
     node_count          = "1"
-    shape          = "VM.Standard2.24"
+    shape          = "VM.DenseIO2.16"
     #shape         = "BM.Standard2.52"
     hostname_prefix = "ss-mgmt-gui-"
   }
@@ -139,7 +139,7 @@ variable "mgmt_gui_node" {
 variable "ces_node" {
   type = "map"
   default = {
-    node_count      = "2"
+    node_count      = "0"
     shape          = "BM.Standard2.52"
     #shape           = "BM.DenseIO2.52"
     hostname_prefix = "ss-ces-"
@@ -150,7 +150,7 @@ variable "windows_smb_client" {
   type = "map"
   default = {
     shape      = "VM.Standard2.4"
-    node_count = 1
+    node_count = 0
     hostname_prefix = "ss-smb-client-"
     boot_volume_size_in_gbs = "256"
   }

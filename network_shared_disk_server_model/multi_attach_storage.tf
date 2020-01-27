@@ -5,7 +5,7 @@
 resource "null_resource" "install_oci_cli_preview" {
    count               = "1"
    provisioner "local-exec" {
-     command = "set -x; rm -rf ~/oci-cli-installer; mkdir -p ~/oci-cli-installer; cd ~/oci-cli-installer; wget -q ${var.oci_cli_download_url} ; file_path=${var.oci_cli_download_url} ; unzip oci-cli-full-install-2.4.40+preview.1.1330.zip  -d ./ ;./install.sh --accept-all-defaults;  oci os bucket list --compartment-id ${var.compartment_ocid}; mkdir -p ~/.oci ; cd ~/.oci ; echo \"[DEFAULT]\nuser=${var.user_ocid}\nfingerprint=${var.fingerprint}\nkey_file=${var.private_key_path}\ntenancy=${var.tenancy_ocid}\nregion=${var.region}\n\" > ~/.oci/config; "
+     command = "set -x; oci os bucket list --compartment-id ${var.compartment_ocid}; "
    }
 }
 
