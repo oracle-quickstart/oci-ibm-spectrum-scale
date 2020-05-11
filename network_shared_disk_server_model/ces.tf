@@ -1,9 +1,9 @@
 resource "oci_core_instance" "ces_node" {
-  count               = "${var.ces_node["node_count"]}"
-  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.ces_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")}"
+  count               = var.ces_node["node_count"]
+  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.ces_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")
 
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
-  compartment_id      = "${var.compartment_ocid}"
+  compartment_id      = var.compartment_ocid
   display_name        = "${var.ces_node["hostname_prefix"]}ptcl-${format("%01d", count.index+1)}"
   hostname_label      = "${var.ces_node["hostname_prefix"]}ptcl-${format("%01d", count.index+1)}"
   shape               = (local.dual_nics_ces_node ? var.ces_node["shape"] : 0)
@@ -11,11 +11,11 @@ resource "oci_core_instance" "ces_node" {
 
   source_details {
     source_type = "image"
-    source_id = "${var.images[var.region]}"
+    source_id = var.images[var.region]
   }
 
   metadata = {
-    ssh_authorized_keys = "${var.ssh_public_key}"
+    ssh_authorized_keys = var.ssh_public_key
     user_data = "${base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
@@ -72,9 +72,9 @@ resource "oci_core_instance" "ces_node" {
 resource "null_resource" "deploy_gpfs_on_ces_nodes" {
   depends_on = [
     oci_core_instance.ces_node  ]
-  count = "${var.ces_node["node_count"]}"
+  count = var.ces_node["node_count"]
   triggers = {
-    instance_ids = "oci_core_instance.ces_node.*.id"
+    instance_ids = oci_core_instance.ces_node.*.id
   }
 
   provisioner "file" {
@@ -123,9 +123,10 @@ resource "null_resource" "configure_ces_service" {
     oci_core_instance.ces_node,
     null_resource.create_gpfs_cluster
   ]
-  count = 1
+  count = var.ces_node["node_count"] > 0 ? 1 : 0
+  # 1
   triggers = {
-    instance_ids = "oci_core_instance.ces_node.*.id"
+    instance_ids = element(concat(oci_core_instance.ces_node.*.id, [""]), 0)
   }
 
   provisioner "remote-exec" {

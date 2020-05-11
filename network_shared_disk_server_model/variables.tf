@@ -38,12 +38,12 @@ variable "imagesOL" {
 # Recommended for HPC workloads - use 2 nsd_nodes_per_pool and 22 block_volumes_per_pool for max throughput
 variable "total_nsd_node_pools" { default="1" }
 variable "nsd_nodes_per_pool" { default="2" }
-variable "block_volumes_per_pool" { default="10" }
+variable "block_volumes_per_pool" { default="2" }
 
 
 # One bastion node is enough
 variable "bastion" {
-  type = "map"
+  type = map(string)
   default = {
     shape      = "VM.Standard2.2"
     node_count = 1
@@ -53,7 +53,7 @@ variable "bastion" {
 
 # NSD Server nodes variables
 variable "nsd_node" {
-  type = "map"
+  type = map(string)
   default = {
     #shape = "BM.DenseIO2.52"
     shape      = "BM.Standard2.52"
@@ -64,19 +64,19 @@ variable "nsd_node" {
 
 # NSD Block Volumes Disk Configurations. size is in GB.
 variable "nsd" {
-  type = "map"
+  type = map(string)
   default = {
-    size = "800"
+    size = "1000"
   }
 }
 
 # Client nodes variables
 variable "client_node" {
-  type = "map"
+  type = map(string)
   default = {
-    shape      = "BM.Standard2.52"
-    #shape      = "BM.Standard.E2.64"
-    node_count = 2
+    shape      = "VM.Standard2.24"
+    #shape      = "BM.Standard.E2.64" , VM.DenseIO2.16 VM.Standard2.4
+    node_count = 1
     hostname_prefix = "ss-compute-"
     }
 }
@@ -88,10 +88,10 @@ variable "client_node" {
   download_url : Should be a http/https link which is accessible from the compute instances we will create. You can use OCI Object Storage bucket with pre-authenticated URL.  example: https://objectstorage.us-ashburn-1.oraclecloud.com/p/DLdr-xxxxxxxxxxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install
 */
 variable "spectrum_scale" {
-  type = "map"
+  type = map(string)
   default = {
     version      = "5.0.3.3"
-    download_url = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/xxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install"
+    download_url = "https://xxxxxxxx/Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install"
     block_size = "2M"
     data_replica  = 1
     metadata_replica = 1
@@ -113,11 +113,13 @@ locals {
   site2 = (var.spectrum_scale["high_availability"] ? var.availability_domain[1] - 1 : var.availability_domain[0] - 1)
   dual_nics = (length(regexall("^BM", var.nsd_node["shape"])) > 0 ? true : false)
   dual_nics_ces_node = (length(regexall("^BM", var.ces_node["shape"])) > 0 ? true : false)
-  vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+#vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+  vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
 
-  privateSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
-  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
-  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+##
+  privateSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
+  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
+  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
 
 }
 
@@ -126,10 +128,10 @@ variable "oci_cli_download_url" { default = "change_me_http://somehost.com" }
 
 # GPFS Management GUI Node Configurations
 variable "mgmt_gui_node" {
-  type = "map"
+  type = map(string)
   default = {
     node_count          = "1"
-    shape          = "VM.DenseIO2.16"
+    shape          = "VM.Standard2.4"
     #shape         = "BM.Standard2.52"
     hostname_prefix = "ss-mgmt-gui-"
   }
@@ -137,7 +139,7 @@ variable "mgmt_gui_node" {
 
 
 variable "ces_node" {
-  type = "map"
+  type = map(string)
   default = {
     node_count      = "0"
     shape          = "BM.Standard2.52"
@@ -147,7 +149,7 @@ variable "ces_node" {
 }
 
 variable "windows_smb_client" {
-  type = "map"
+  type = map(string)
   default = {
     shape      = "VM.Standard2.4"
     node_count = 0
@@ -157,7 +159,7 @@ variable "windows_smb_client" {
 }
 
 variable "callhome" {
-  type = "map"
+  type = map(string)
   default = {
     company_name = "Company Name"
     company_id   = "1234567"

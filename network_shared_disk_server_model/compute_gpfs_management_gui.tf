@@ -1,22 +1,23 @@
 
 resource "oci_core_instance" "mgmt_gui_node" {
-  count               = "${var.mgmt_gui_node["node_count"]}"
-  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.mgmt_gui_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")}"
+  count               = var.mgmt_gui_node["node_count"]
+  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.mgmt_gui_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")
 
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
-  compartment_id      = "${var.compartment_ocid}"
+  compartment_id      = var.compartment_ocid
   display_name        = "${var.mgmt_gui_node["hostname_prefix"]}${format("%01d", count.index+1)}"
   hostname_label      = "${var.mgmt_gui_node["hostname_prefix"]}${format("%01d", count.index+1)}"
-  shape               = "${var.mgmt_gui_node["shape"]}"
-  subnet_id           = oci_core_subnet.privateb.*.id[0]
+  shape               = var.mgmt_gui_node["shape"]
+#  subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
+  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
 
   source_details {
     source_type = "image"
-    source_id = "${var.images[var.region]}"
+    source_id = var.images[var.region]
   }
 
   metadata = {
-    ssh_authorized_keys = "${var.ssh_public_key}"
+    ssh_authorized_keys = var.ssh_public_key
     user_data = "${base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
@@ -76,7 +77,7 @@ resource "null_resource" "deploy_gpfs_on_mgmt_gui_nodes" {
     oci_core_instance.mgmt_gui_node,
     null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
   ]
-  count = "${var.mgmt_gui_node["node_count"]}"
+  count = var.mgmt_gui_node["node_count"]
   triggers = {
     instance_ids = "oci_core_instance.mgmt_gui_node.*.id"
   }
@@ -129,7 +130,8 @@ resource "null_resource" "configure_mgmt_gui_service" {
     null_resource.create_gpfs_cluster,
     null_resource.configure_ces_service
   ]
-  count = 1
+  count = var.mgmt_gui_node["node_count"] > 0 ? 1 : 0
+  # 1
   triggers = {
     instance_ids = "oci_core_instance.mgmt_gui_node.*.id"
   }

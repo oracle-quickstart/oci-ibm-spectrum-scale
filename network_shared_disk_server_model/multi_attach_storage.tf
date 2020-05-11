@@ -15,20 +15,20 @@ resource "null_resource" "install_oci_cli_preview" {
 */
 resource "null_resource" "copy_nsddevices_to_all_server_nodes" {
     depends_on = [oci_core_instance.nsd_node]
-    count      = "${var.total_nsd_node_pools * var.nsd_nodes_per_pool}"
+    count      = var.total_nsd_node_pools * var.nsd_nodes_per_pool
     provisioner "file" {
       source = "${var.scripts_directory}/nsddevices"
       destination = "/tmp/nsddevices"
       connection {
         agent               = false
         timeout             = "30m"
-        host                = "${element(oci_core_instance.nsd_node.*.private_ip, count.index)}"
-        user                = "${var.ssh_user}"
-        private_key         = "${var.ssh_private_key}"
-        bastion_host        = "${oci_core_instance.bastion.*.public_ip[0]}"
+        host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
+        user                = var.ssh_user
+        private_key         = var.ssh_private_key
+        bastion_host        = oci_core_instance.bastion.*.public_ip[0]
         bastion_port        = "22"
-        bastion_user        = "${var.ssh_user}"
-        bastion_private_key = "${var.ssh_private_key}"
+        bastion_user        = var.ssh_user
+        bastion_private_key = var.ssh_private_key
       }
     }  
 }
@@ -83,18 +83,18 @@ resource "null_resource" "multi_attach_shared_data_bv_to_nsd_nodes" {
 resource "null_resource" "notify_server_nodes_oci_cli_multi_attach_complete" {
   depends_on = [ null_resource.multi_attach_shared_data_bv_to_nsd_nodes,
                     null_resource.copy_nsddevices_to_all_server_nodes]
-  count      = "${var.total_nsd_node_pools * var.nsd_nodes_per_pool}"
+  count      = var.total_nsd_node_pools * var.nsd_nodes_per_pool
   provisioner "remote-exec" {
     connection {
         agent               = false
         timeout             = "30m"
-        host                = "${element(oci_core_instance.nsd_node.*.private_ip, count.index)}"
-        user                = "${var.ssh_user}"
-        private_key         = "${var.ssh_private_key}"
-        bastion_host        = "${oci_core_instance.bastion.*.public_ip[0]}"
+        host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
+        user                = var.ssh_user
+        private_key         = var.ssh_private_key
+        bastion_host        = oci_core_instance.bastion.*.public_ip[0]
         bastion_port        = "22"
-        bastion_user        = "${var.ssh_user}"
-        bastion_private_key = "${var.ssh_private_key}"
+        bastion_user        = var.ssh_user
+        bastion_private_key = var.ssh_private_key
     }
     inline = [
       "set -x",

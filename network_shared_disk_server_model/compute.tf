@@ -5,21 +5,21 @@ locals {
 
 resource "oci_core_instance" "nsd_node" {
   count               = local.nsd_node_count
-  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (local.nsd_node_count / 2)) ? local.site1 : local.site2)],"name")}"
+  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (local.nsd_node_count / 2)) ? local.site1 : local.site2)],"name")
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
-  compartment_id      = "${var.compartment_ocid}"
+  compartment_id      = var.compartment_ocid
   display_name        = "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}"
   hostname_label      = "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}"
-  shape               = "${var.nsd_node["shape"]}"
-  subnet_id           = "${oci_core_subnet.private.*.id[0]}"
+  shape               = var.nsd_node["shape"]
+  subnet_id           = oci_core_subnet.private.*.id[0]
 
   source_details {
     source_type = "image"
-    source_id = "${var.images[var.region]}"
+    source_id = var.images[var.region]
   }
 
   metadata = {
-    ssh_authorized_keys = "${var.ssh_public_key}"
+    ssh_authorized_keys = var.ssh_public_key
     user_data = "${base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
@@ -73,23 +73,24 @@ resource "oci_core_instance" "nsd_node" {
 
 
 resource "oci_core_instance" "client_node" {
-  count               = "${var.client_node["node_count"]}"
-  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.client_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")}"
+  count               = var.client_node["node_count"]
+  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.client_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")
 
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
-  compartment_id      = "${var.compartment_ocid}"
+  compartment_id      = var.compartment_ocid
   display_name        = "${var.client_node["hostname_prefix"]}${format("%01d", count.index+1)}"
   hostname_label      = "${var.client_node["hostname_prefix"]}${format("%01d", count.index+1)}"
-  shape               = "${var.client_node["shape"]}"
-  subnet_id           = oci_core_subnet.privateb.*.id[0]
+  shape               = var.client_node["shape"]
+  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
+   # element(oci_core_subnet.privateb.*.id, 0)
 
   source_details {
     source_type = "image"
-    source_id = "${var.images[var.region]}"
+    source_id = var.images[var.region]
   }
 
   metadata = {
-    ssh_authorized_keys = "${var.ssh_public_key}"
+    ssh_authorized_keys = var.ssh_public_key
     user_data = "${base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
@@ -145,26 +146,26 @@ resource "oci_core_instance" "client_node" {
 
 /* bastion instances */
 resource "oci_core_instance" "bastion" {
-  count = "${var.bastion["node_count"]}"
-  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[((count.index % 2 == 0) ? local.site1 : local.site2)],"name")}"
+  count = var.bastion["node_count"]
+  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[((count.index % 2 == 0) ? local.site1 : local.site2)],"name")
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
-  compartment_id      = "${var.compartment_ocid}"
+  compartment_id      = var.compartment_ocid
   display_name        = "${var.bastion["hostname_prefix"]}${format("%01d", count.index+1)}"
-  shape               = "${var.bastion["shape"]}"
+  shape               = var.bastion["shape"]
   hostname_label      = "${var.bastion["hostname_prefix"]}${format("%01d", count.index+1)}"
 
   create_vnic_details {
-    subnet_id              = "${oci_core_subnet.public.*.id[0]}"
+    subnet_id              = oci_core_subnet.public.*.id[0]
     skip_source_dest_check = true
   }
 
   metadata = {
-    ssh_authorized_keys = "${var.ssh_public_key}"
+    ssh_authorized_keys = var.ssh_public_key
   }
 
   source_details {
     source_type = "image"
-    source_id   = "${var.images[var.region]}"
+    source_id   = var.images[var.region]
   }
 }
 
@@ -176,7 +177,7 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
     oci_core_instance.client_node,
     null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
   ]
-  count = "${var.client_node["node_count"]}"
+  count = var.client_node["node_count"]
   triggers = {
     instance_ids = "oci_core_instance.client_node.*.id"
   }
@@ -246,7 +247,7 @@ resource "null_resource" "deploy_gpfs_on_nsd_server_nodes" {
     oci_core_instance.nsd_node,
     null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
   ]
-  count = "${var.total_nsd_node_pools * var.nsd_nodes_per_pool}"
+  count = var.total_nsd_node_pools * var.nsd_nodes_per_pool
   triggers = {
     instance_ids = "oci_core_instance.nsd_node.*.id"
   }
