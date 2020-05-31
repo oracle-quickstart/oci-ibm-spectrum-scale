@@ -2,7 +2,7 @@
 echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
 
-  # Wait for multi-attach of the Block volumes to complete.  Only way to do that is via OCI CLI preview tool version which is called from Terraform scripts.  It then creates the below file on all nodes of the cluster.
+  # Wait for multi-attach of the Block volumes to complete.  
   while [ ! -f /tmp/multi-attach.complete ]
   do
     sleep 60s
@@ -38,7 +38,7 @@ if [ $? -eq 0 ] ; then
     else
       echo "Zero block volumes, not calling iscsiadm, Total Disk Count: $blockVolumesPerPool"
     fi
-    # Create this file for TF script to proceed with next steps
+    # for TF script to proceed with next steps
     touch /tmp/multi-attach-iscsi.complete
 fi
 
