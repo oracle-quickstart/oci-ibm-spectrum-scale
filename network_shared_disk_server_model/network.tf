@@ -278,7 +278,8 @@ resource "oci_core_subnet" "private" {
 
 # Regional subnet - private B
 resource "oci_core_subnet" "privateb" {
-  count                      = (local.dual_nics ? 1 : 0)
+  count                      = "1"
+  #(local.dual_nics ? 1 : 0)
   cidr_block                 = cidrsubnet(var.vpc_cidr, 8, count.index+6)
   display_name               = "privateb_${count.index}"
   compartment_id             = var.compartment_ocid
@@ -292,7 +293,8 @@ resource "oci_core_subnet" "privateb" {
 
 # Regional subnet - private for CES/TCT/Protocol nodes.
 resource "oci_core_subnet" "privateprotocol" {
-  count                      = (local.dual_nics ? 1 : 0)
+  count                      = "1"
+  #(local.dual_nics ? 1 : 0)
   cidr_block                 = cidrsubnet(var.vpc_cidr, 8, count.index+9)
   display_name               = "privateprotocol_${count.index}"
   compartment_id             = var.compartment_ocid

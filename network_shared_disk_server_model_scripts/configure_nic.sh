@@ -1,5 +1,58 @@
 MDATA_VNIC_URL="http://169.254.169.254/opc/v1/vnics/"
 
+function configure_vnics {
+  # Configure second vNIC
+  scriptsource="https://raw.githubusercontent.com/oracle/terraform-examples/master/examples/oci/connect_vcns_using_multiple_vnics/scripts/secondary_vnic_all_configure.sh"
+  vnicscript=/root/secondary_vnic_all_configure.sh
+  curl -s $scriptsource > $vnicscript
+  chmod +x $vnicscript
+  cat > /etc/systemd/system/secondnic.service << EOF
+[Unit]
+Description=Script to configure a secondary vNIC
+
+[Service]
+Type=oneshot
+ExecStart=$vnicscript -c
+ExecStop=$vnicscript -d
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+  systemctl enable secondnic.service
+  systemctl start secondnic.service
+  vnic_cnt=`/root/secondary_vnic_all_configure.sh | grep "ocid1.vnic." | grep " UP " | wc -l` ;
+  RC=1
+  while ( [ $vnic_cnt -le 1 ] || [ $RC -ne 0 ] )
+  do
+    echo "sleep 10s"
+    sleep 10
+    systemctl restart secondnic.service
+    RC=$?
+    vnic_cnt=`/root/secondary_vnic_all_configure.sh | grep "ocid1.vnic." | grep " UP " | wc -l` ;
+  done
+
+}
+
+
+#  configure 1st NIC
+privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[0].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
+
+
+lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
+if [ $? -eq 0 ];  then
+  echo "do nothing - AMD"
+else
+  # For Intel, it degrades n/w performance on AMD
+  echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
+  echo "ethtool -L $interface combined 74" >> /etc/rc.local
+  chmod +x /etc/rc.local
+  # node needs to be rebooted for rc.local change to be effective.
+fi
+
 #   configure 2nd NIC
 echo `hostname` | grep -q "$clientNodeHostnamePrefix\|$mgmtGuiNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
@@ -7,52 +60,16 @@ if [ $? -eq 0 ] ; then
   thisHost=${thisFQDN%%.*}
   echo "thisFQDN=$thisFQDN  and thisHost=$thisHost"
 else
-ifconfig | grep "^eno3d1:\|^enp70s0f1d1:\|^eno2d1:"
-  if [ $? -eq 0 ] ; then
-    echo "2 NIC setup"
-    ifconfig | grep "^enp70s0f1d1:"
-    if [ $? -eq 0 ] ; then
-      interface="enp70s0f1d1"
-    fi
-    ifconfig | grep "^eno3d1:"
-    if [ $? -eq 0 ] ; then
-      interface="eno3d1"
-    fi
-    # AMD BM.Standard.E2.64
-    ifconfig | grep "^eno2d1:"
-    if [ $? -eq 0 ] ; then
-      interface="eno2d1"
-    fi
 
-    ip route ; ifconfig ; route ; ip addr
-    cd /etc/sysconfig/network-scripts/
+  configure_vnics
+  # check if 1 or 2 VNIC.
+  vnic_count=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '. | length'`
 
-    # Wait till 2nd NIC is configured
-    privateIp=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 1) | select (.vlanTag == 0) | .privateIp ' | sed 's/"//g' ` ;
-    echo $privateIp | grep "\." ;
-    while [ $? -ne 0 ];
-    do
-      sleep 10s
-      echo "Waiting for 2nd Physical NIC to get configured with hostname"
-      privateIp=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 1) | select (.vlanTag == 0) | .privateIp ' | sed 's/"//g' ` ;
-      echo $privateIp | grep "\." ;
-    done
+  if [ $vnic_count -gt 1 ] ; then
+    echo "2 VNIC setup"
 
-    macAddr=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 1) | select (.vlanTag == 0) | .macAddr ' | sed 's/"//g' ` ;
-    subnetCidrBlock=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 1) | select (.vlanTag == 0) | .subnetCidrBlock ' | sed 's/"//g' ` ;
-
-    echo "$subnetCidrBlock via $privateIp dev $interface" >  /etc/sysconfig/network-scripts/route-$interface
-    echo "Permanently configure 2nd NIC...$interface"
-    echo "DEVICE=$interface
-HWADDR=$macAddr
-ONBOOT=yes
-TYPE=Ethernet
-USERCTL=no
-IPADDR=$privateIp
-NETMASK=255.255.255.0
-MTU=9000
-NM_CONTROLLED=no
-" > /etc/sysconfig/network-scripts/ifcfg-$interface
+    privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+    interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
 
     lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
     if [ $? -eq 0 ];  then
@@ -62,9 +79,6 @@ NM_CONTROLLED=no
       echo "ETHTOOL_OPTS=\"-G ${interface} rx 2047 tx 2047 rx-jumbo 8191; -L ${interface} combined 74\"" >> /etc/sysconfig/network-scripts/ifcfg-$interface
     fi
 
-    systemctl status network.service
-    ifdown $interface
-    ifup $interface
 
     # ensure the below is not empty
     test=`nslookup $privateIp | grep -q "name = "`
@@ -89,49 +103,40 @@ NM_CONTROLLED=no
   fi
 fi
 
-#  configure 1st NIC
-ifconfig | grep "^eno2:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="eno2"
-fi
-ifconfig | grep "^ens3:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="ens3"
-fi
-
-ifconfig | grep "^enp70s0f0:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="enp70s0f0"
-fi
-ifconfig | grep "^eno1:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="eno1"
-fi
-
-lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
-if [ $? -eq 0 ];  then
-  echo "do nothing - AMD"
-else
-  # For Intel, it degrades n/w performance on AMD
-  echo "ethtool -G $primaryNICInterface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
-  echo "ethtool -L $primaryNICInterface combined 74" >> /etc/rc.local
-  chmod +x /etc/rc.local
-  # node needs to be rebooted for rc.local change to be effective.
-fi
-
+# required to include in this file
 echo "thisFQDN=\"$thisFQDN\"" >> /tmp/gpfs_env_variables.sh
 echo "thisHost=\"$thisHost\"" >> /tmp/gpfs_env_variables.sh
 
 echo $thisHost | grep -q "$cesNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
-  privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 0) | select (.vlanTag == 1) | .privateIp ' | sed 's/"//g' ` ;
+
+  # NOTE:  This assume 2nd in the list is VIP IP and 3rd will be for privateb subnet
+  privateVipIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ;
   echo $privateVipIp | grep "\." ;
   while [ $? -ne 0 ];
   do
     sleep 10s
     echo "Waiting for IP of VNIC to get configured..."
-    privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 0) | select (.vlanTag == 1) | .privateIp ' | sed 's/"//g' ` ;
+    privateVipIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ;
     echo $privateVipIp | grep "\." ;
   done
   echo "$privateVipIp" >> /tmp/ces_vip_ips
 fi
+
+
+####thisFQDN=`hostname --fqdn`
+####thisHost=${thisFQDN%%.*}
+####
+####echo $thisHost | grep -q "$cesNodeHostnamePrefix"
+####if [ $? -eq 0 ] ; then
+####  privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 0) | select (.vlanTag == 1) | .privateIp ' | sed 's/"//g' ` ;
+####  echo $privateVipIp | grep "\." ;
+####  while [ $? -ne 0 ];
+####  do
+####    sleep 10s
+####    echo "Waiting for IP of VNIC to get configured..."
+####    privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[]  | select (.nicIndex == 0) | select (.vlanTag == 1) | .privateIp ' | sed 's/"//g' ` ;
+####    echo $privateVipIp | grep "\." ;
+####  done
+####  echo "$privateVipIp" >> /tmp/ces_vip_ips
+####fi

@@ -72,6 +72,9 @@ mmdsh -N all "systemctl restart pmsensors"
 
 # Step 9.  Enable and start the gpfsgui services.
 mmdsh -N $allMgmtGuiNodes "systemctl enable gpfsgui.service"
+
+# Starting version 5.0.5.0 or may be 5.0.4.0, this change is required. 
+sed -i "s|java -XX|java -Xmx2048m -XX|g" /usr/lib/systemd/system/gpfsgui.service
 mmdsh -N $allMgmtGuiNodes "systemctl start gpfsgui.service"
 
 # Step 10.  Create the GUI admin account.
@@ -96,7 +99,7 @@ while [ `mmgetstate -a  | grep "$mgmtGuiNodeHostnamePrefix" | grep "active" | wc
 
 # From your local machine, create an ssh tunnel using bastion host as the intermediatory to reach the GUI on the GUI Mgmt node which is in private subnet.
 
-#   ssh -i ~/.ssh/oci -N -L localhost:11443:10.0.3.5:443 129.146.189.209
+#   ssh -i ~/.ssh/oci -N -L localhost:11443:10.0.3.5:443 opc@129.146.189.209
 
 #   bastion = 129.146.189.209
 #   Remote node (private) =  10.0.6.5

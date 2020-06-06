@@ -6,7 +6,7 @@ resource "oci_core_instance" "ces_node" {
   compartment_id      = var.compartment_ocid
   display_name        = "${var.ces_node["hostname_prefix"]}ptcl-${format("%01d", count.index+1)}"
   hostname_label      = "${var.ces_node["hostname_prefix"]}ptcl-${format("%01d", count.index+1)}"
-  shape               = (local.dual_nics_ces_node ? var.ces_node["shape"] : 0)
+  shape               = (local.dual_nics_ces_node ? var.ces_node["shape"] : var.ces_node["shape"])
   subnet_id           = oci_core_subnet.privateprotocol.*.id[0]
 
   source_details {
@@ -74,7 +74,7 @@ resource "null_resource" "deploy_gpfs_on_ces_nodes" {
     oci_core_instance.ces_node  ]
   count = var.ces_node["node_count"]
   triggers = {
-    instance_ids = oci_core_instance.ces_node.*.id
+    instance_ids = "oci_core_instance.ces_node.*.id"
   }
 
   provisioner "file" {

@@ -67,7 +67,9 @@ mmces address add --ces-ip $cesVipList
 mmlscluster --ces
 
 # Step 9.  Configure the parameters for protocol (CES) nodes.
-mmchconfig pagepool=128G -N cesNodes
+mmchconfig pagepool=4G -N cesNodes
+# For BM shape
+#mmchconfig pagepool=128G -N cesNodes
 mmchconfig workerThreads=2048 -N cesNodes
 mmchconfig maxFilesToCache=5M -N cesNodes
 

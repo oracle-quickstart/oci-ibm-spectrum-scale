@@ -112,14 +112,22 @@ locals {
   site1 = (var.spectrum_scale["high_availability"] ? var.availability_domain[0] - 1 : var.availability_domain[0] - 1)
   site2 = (var.spectrum_scale["high_availability"] ? var.availability_domain[1] - 1 : var.availability_domain[0] - 1)
   dual_nics = (length(regexall("^BM", var.nsd_node["shape"])) > 0 ? true : false)
+#storage_server_dual_nics
+  dual_nics_hpc_shape = (length(regexall("HPC2", var.nsd_node["shape"])) > 0 ? true : false)
+
   dual_nics_ces_node = (length(regexall("^BM", var.ces_node["shape"])) > 0 ? true : false)
+  dual_nics_ces_hpc_shape = (length(regexall("^HPC2", var.ces_node["shape"])) > 0 ? true : false)
 #vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
   vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
 
-##
-  privateSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
-  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
-  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
+####
+####  privateSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
+####  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
+####  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
+
+  privateSubnetsFQDN=("${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
+  privateBSubnetsFQDN=("${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
+  private_protocol_subnet_fqdn=("${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
 
 }
 
@@ -131,8 +139,8 @@ variable "mgmt_gui_node" {
   type = map(string)
   default = {
     node_count          = "1"
-    shape          = "VM.Standard2.4"
-    #shape         = "BM.Standard2.52"
+    shape          = "VM.Standard2.8"
+    #shape         = "VM.Standard2.4"
     hostname_prefix = "ss-mgmt-gui-"
   }
 }

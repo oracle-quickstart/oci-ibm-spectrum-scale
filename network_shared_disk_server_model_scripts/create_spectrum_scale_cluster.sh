@@ -8,10 +8,14 @@ source /tmp/gpfs_env_variables.sh
 echo "$thisHost" | grep -q -w $installerNode
 if [ $? -eq 0 ] ; then
   rm  /root/node.stanza
+  qcount=1
   for hname in `cat /tmp/allnodehosts` ; do
     echo "$hname" | grep -q $nsdNodeHostnamePrefix
     if [ $? -eq 0 ] ; then
+      if [ $qcount -le 5 ]; then
         echo "${hname}:quorum-manager" >> /root/node.stanza
+        qcount=$((qcount+1))
+      fi
     fi
     echo "$hname" | grep -q $clientNodeHostnamePrefix
     if [ $? -eq 0 ] ; then
@@ -114,8 +118,9 @@ if [ $? -eq 0 ] ; then
   done
 
   mmchconfig maxblocksize=16M,maxMBpS=6250,numaMemoryInterleave=yes,tscCmdPortRange=60000-61000,workerThreads=1024
-  mmchconfig pagepool=128G,maxFilesToCache=5M -N nsdNodes
-  mmchconfig pagepool=64G,maxFilesToCache=1M -N clientNodes
+  # Change these values based on VM/BM shape. The below are for BM shape.
+  #  mmchconfig pagepool=128G,maxFilesToCache=5M -N nsdNodes
+  #  mmchconfig pagepool=64G,maxFilesToCache=1M -N clientNodes
 
 
 
@@ -181,7 +186,9 @@ while [ `mmgetstate -a  | grep "$cesNodeHostnamePrefix" | grep "active" | wc -l`
 for node in `cat /tmp/mgmtguinodehosts` ; do
   mmaddnode -N $node
   mmchlicense client --accept -N $node
-  mmchconfig pagepool=32G -N $node
+  # recommended - 32G,  if node has memory
+  #mmchconfig pagepool=32G -N $node
+  mmchconfig pagepool=10G -N $node
 done
 
 fi

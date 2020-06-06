@@ -9,7 +9,9 @@ resource "oci_core_instance" "mgmt_gui_node" {
   hostname_label      = "${var.mgmt_gui_node["hostname_prefix"]}${format("%01d", count.index+1)}"
   shape               = var.mgmt_gui_node["shape"]
 #  subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
-  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
+####  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
+subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
+
 
   source_details {
     source_type = "image"
