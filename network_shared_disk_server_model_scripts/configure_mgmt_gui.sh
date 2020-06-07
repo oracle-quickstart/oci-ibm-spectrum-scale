@@ -73,8 +73,9 @@ mmdsh -N all "systemctl restart pmsensors"
 # Step 9.  Enable and start the gpfsgui services.
 mmdsh -N $allMgmtGuiNodes "systemctl enable gpfsgui.service"
 
-# Starting version 5.0.5.0 or may be 5.0.4.0, this change is required. 
+# Starting version 5.0.5.0 or may be 5.0.4.0, this change is required.
 sed -i "s|java -XX|java -Xmx2048m -XX|g" /usr/lib/systemd/system/gpfsgui.service
+mmdsh -N $allMgmtGuiNodes "systemctl stop gpfsgui.service"
 mmdsh -N $allMgmtGuiNodes "systemctl start gpfsgui.service"
 
 # Step 10.  Create the GUI admin account.
