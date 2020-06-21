@@ -5,11 +5,12 @@
 
 variable "vpc_cidr" { default = "10.0.0.0/16" }
 
-
-# Recommended for HPC workloads - use 2 nsd_nodes_per_pool and 22 block_volumes_per_pool for max throughput
 variable "total_nsd_node_pools" { default="1" }
-variable "nsd_nodes_per_pool" { default="2" }
-variable "block_volumes_per_pool" { default="2" }
+/*
+  Use 16 block_volumes_per_pool of 800GB each for max throughput, 
+  if using BM.Standard2.52 for NSD servers.
+*/
+variable "block_volumes_per_pool" { default="16" }
 
 
 # One bastion node is enough
@@ -166,6 +167,8 @@ variable "callhome" {
 ##################################################
 ## Variables which should not be changed by user
 ##################################################
+
+variable "nsd_nodes_per_pool" { default="2" }
 
 # Please do not change.  The first nsd node is used for cluster deployment
 variable "installer_node" { default = "1" }
