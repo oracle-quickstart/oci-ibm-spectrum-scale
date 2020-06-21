@@ -5,35 +5,6 @@
 
 variable "vpc_cidr" { default = "10.0.0.0/16" }
 
-variable "imagesCentos76" {
-  type = map(string)
-  default = {
-    /*
-      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
-      Oracle-provided image "CentOS-7-2018.11.16-0"
-      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
-    */
-    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaatbfzohfzwagb5eplk5abjifwmr5bpytuo2pgyufflpkdfkkb3eca"
-    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaa3p2d4bzgz4gw435tw3522u4d3enh7jwlwpymfgqwp6hrhebs4s2q"
-    uk-london-1    = "ocid1.image.oc1.uk-london-1.aaaaaaaaktvxlhhjs3k57fbloubrbuju7vdyaivdw5pclmva2kwhqhqlewbq"
-    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaavzt7r56xh2lj2w7ibqbkvumxbqr2z2jswoma3qjbunu7wj63rigq"
-  }
-}
-
-# Oracle-Linux-7.6-2019.05.28-0
-# https://docs.cloud.oracle.com/iaas/images/image/6180a2cb-be6c-4c78-a69f-38f2714e6b3d/
-variable "imagesOL" {
-  type = map(string)
-  default = {
-    /*
-      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
-      Oracle-provided image "CentOS-7-2018.11.16-0"
-      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
-    */
-    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaaj6pcmnh6y3hdi3ibyxhhflvp3mj2qad4nspojrnxc6pzgn2w3k5q"
-    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaa2wadtmv6j6zboncfobau7fracahvweue6dqipmcd5yj6s54f3wpq"
-  }
-}
 
 # Recommended for HPC workloads - use 2 nsd_nodes_per_pool and 22 block_volumes_per_pool for max throughput
 variable "total_nsd_node_pools" { default="1" }
@@ -85,11 +56,26 @@ variable "client_node" {
   Spectrum Scale related variables
 */
 /*
-  download_url : Should be a http/https link which is accessible from the compute instances we will create. You can use OCI Object Storage bucket with pre-authenticated URL.  example: https://objectstorage.us-ashburn-1.oraclecloud.com/p/DLdr-xxxxxxxxxxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install
+  download_url : Should be a http/https link which is accessible from all Spectrum Scale instances we will create. 
+  You can use OCI Object Storage bucket with pre-authenticated URL.  
+  example: https://objectstorage.us-ashburn-1.oraclecloud.com/p/DLdr-xxxxxxxxxxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install
+  Assuming you have uploaded the spectrum scale software binary to OCI Object storage private bucket. You can create a 
+  preauthenticatedrequests using the steps detailed here - https://docs.cloud.oracle.com/en-us/iaas/Content/Object/Tasks/usingpreauthenticatedrequests.htm#usingconsole
+  
+  Note: The name of the spectrum scale software binary file needs to exactly follow this naming convention. 
+  These are the names of the file by default, when you download it. 
+  Replace the version number with the one you are using:
+  For Spectrum Scale Data Management Edition:  Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install
+  For Spectrum Scale Developer Edition:        Spectrum Scale 5.0.4.1 Developer Edition.zip 
+  Once you upload to OCI Object Storage,  the download_url will look like this: 
+  https://objectstorage.us-ashburn-1.oraclecloud.com/xxxxxxxx/Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install
+  or 
+  https://objectstorage.us-ashburn-1.oraclecloud.com/xxxxxxxx/Spectrum%20Scale%205.0.4.1%20Developer%20Edition.zip
 */
 variable "spectrum_scale" {
   type = map(string)
   default = {
+    # Make sure the version # matches the version # in the download_url field. 
     version      = "5.0.3.3"
     download_url = "https://xxxxxxxx/Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install"
     block_size = "2M"
@@ -112,12 +98,12 @@ locals {
   site1 = (var.spectrum_scale["high_availability"] ? var.availability_domain[0] - 1 : var.availability_domain[0] - 1)
   site2 = (var.spectrum_scale["high_availability"] ? var.availability_domain[1] - 1 : var.availability_domain[0] - 1)
   dual_nics = (length(regexall("^BM", var.nsd_node["shape"])) > 0 ? true : false)
-#storage_server_dual_nics
+  #storage_server_dual_nics
   dual_nics_hpc_shape = (length(regexall("HPC2", var.nsd_node["shape"])) > 0 ? true : false)
 
   dual_nics_ces_node = (length(regexall("^BM", var.ces_node["shape"])) > 0 ? true : false)
   dual_nics_ces_hpc_shape = (length(regexall("HPC2", var.ces_node["shape"])) > 0 ? true : false)
-#vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
+  #vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
   vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
 
 ####
@@ -131,41 +117,42 @@ locals {
 
 }
 
-# path to download OCI Command Line Tool to perform multi-attach for Block Volumes
-variable "oci_cli_download_url" { default = "change_me_http://somehost.com" }
 
 # GPFS Management GUI Node Configurations
+# Optional node
 variable "mgmt_gui_node" {
   type = map(string)
   default = {
-    node_count          = "1"
-    shape          = "VM.Standard2.8"
-    #shape         = "VM.Standard2.4"
+    node_count      = "0"
+    shape           = "VM.Standard2.8"
     hostname_prefix = "ss-mgmt-gui-"
   }
 }
 
 
+# Optional node
 variable "ces_node" {
   type = map(string)
   default = {
     node_count      = "0"
-    shape          = "BM.Standard2.52"
-    #shape           = "BM.DenseIO2.52"
+    shape           = "BM.Standard2.52"
     hostname_prefix = "ss-ces-"
   }
 }
 
+# Optional node
 variable "windows_smb_client" {
   type = map(string)
   default = {
-    shape      = "VM.Standard2.4"
-    node_count = 0
-    hostname_prefix = "ss-smb-client-"
+    shape                   = "VM.Standard2.4"
+    node_count              = 0
+    hostname_prefix         = "ss-smb-client-"
+    # 256 GB - Required boot volume size for windows
     boot_volume_size_in_gbs = "256"
   }
 }
 
+# You can use the below,  no need to change them for non-production use.
 variable "callhome" {
   type = map(string)
   default = {
@@ -243,7 +230,6 @@ variable "tenancy_ocid" {}
 variable "user_ocid" {}
 variable "fingerprint" {}
 variable "private_key_path" {}
-#variable "region" { default = "us-ashburn-1" }
 variable "region" { default = "uk-london-1" }
 
 variable "compartment_ocid" {}
@@ -254,10 +240,8 @@ variable "ssh_private_key_path" {}
 /*
   For instances created using Oracle Linux and CentOS images, the user name opc is created automatically.
   For instances created using the Ubuntu image, the user name ubuntu is created automatically.
-  The ubuntu user has sudo privileges and is configured for remote access over the SSH v2 protocol using RSA keys. The SSH public keys that you specify while creating instances are added to the /home/ubuntu/.ssh/authorized_keys file.
-  For more details: https://docs.cloud.oracle.com/iaas/Content/Compute/References/images.htm#one
-  For Ubuntu images,  set to ubuntu.
-  # variable "ssh_user" { default = "ubuntu" }
+  Spectrum Scale works with Ubuntu on OCI, but this automation does not support it.  TODO: Future work.  
+  variable "ssh_user" { default = "ubuntu" }
 */
 variable "ssh_user" { default = "opc" }
 
@@ -288,7 +272,7 @@ See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.orac
 Oracle-provided image "CentOS-7-2019.08.26-0"
 https://docs.cloud.oracle.com/iaas/images/image/ea67dd20-b247-4937-bfff-894962212415/
 */
-/* imagesCentOS_Latest */
+/* imagesCentOS */
 variable "images" {
   type = map(string)
   default = {
@@ -306,3 +290,32 @@ variable "images" {
   }
 }
 
+variable "imagesCentos76" {
+  type = map(string)
+  default = {
+    /*
+      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
+      Oracle-provided image "CentOS-7-2018.11.16-0"
+      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
+    */
+    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaatbfzohfzwagb5eplk5abjifwmr5bpytuo2pgyufflpkdfkkb3eca"
+    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaa3p2d4bzgz4gw435tw3522u4d3enh7jwlwpymfgqwp6hrhebs4s2q"
+    uk-london-1    = "ocid1.image.oc1.uk-london-1.aaaaaaaaktvxlhhjs3k57fbloubrbuju7vdyaivdw5pclmva2kwhqhqlewbq"
+    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaavzt7r56xh2lj2w7ibqbkvumxbqr2z2jswoma3qjbunu7wj63rigq"
+  }
+}
+
+# Oracle-Linux-7.6-2019.05.28-0
+# https://docs.cloud.oracle.com/iaas/images/image/6180a2cb-be6c-4c78-a69f-38f2714e6b3d/
+variable "imagesOL" {
+  type = map(string)
+  default = {
+    /*
+      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
+      Oracle-provided image "CentOS-7-2018.11.16-0"
+      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
+    */
+    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaaj6pcmnh6y3hdi3ibyxhhflvp3mj2qad4nspojrnxc6pzgn2w3k5q"
+    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaa2wadtmv6j6zboncfobau7fracahvweue6dqipmcd5yj6s54f3wpq"
+  }
+}
