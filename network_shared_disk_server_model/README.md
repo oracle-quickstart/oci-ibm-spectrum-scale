@@ -11,13 +11,26 @@ The template creates all the required infrastucture (virtual network, nat gatewa
 ## Multiple AD
 ![](../images/network_shared_disk_server_model/01a-two-AD-architecture.png)
 
-## IBM Spectrum Scale Data Management license 
-This template assumes you already have purchased a license from IBM and have downloaded the software.  The software needs to be stored on a server which is accessible from the servers created by this template in OCI.  For example: you can save the software in OCI Object Storage bucket and create pre-authenticated request to use in your template.  
-
 
 
 ## Prerequisites
-First off you'll need to do some pre deploy setup.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
+
+### 1. IBM Spectrum Scale Software Download  
+This template is designed to work with the following editions: 
+
+      Spectrum Scale Data Management Edition
+      Spectrum Scale Developer Edition -  Free for upto 12TB Storage 
+      Spectrum Scale Data Access Edition
+
+
+Please download the Free developer edition of Spectrum Scale software binary from [IBM website](https://www.ibm.com/sg-en/marketplace/scale-out-file-and-object-storage/purchase).  The software needs to be stored on a server which is accessible from the file servers created by this template in OCI.  For example: you can save the software in private secure OCI Object Storage bucket and create pre-authenticated request to use in your template.
+
+If you already have license for Spectrum Scale,  then you can download it from [here](https://www.ibm.com/support/fixcentral/swg/selectFixes?parent=Software%20defined%20storage&product=ibm/StorageSoftware/IBM+Spectrum+Scale&release=All&platform=Linux+64-bit,x86_64&function=all)
+
+
+
+### 2. OCI Terraform configuration
+First off you'll need to do some pre deploy setup on your local machine to use Terraform with Oracle Cloud Infrastructure.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
 
 
 ## Clone the Terraform template
@@ -32,15 +45,16 @@ Now, you'll want a local copy of this repo.  You can make that with the commands
 ## Update variables.tf file (optional)
 This is optional, but you can update the variables.tf to change compute shapes to use for NSD servers, dataReplica, # of NSD disks, # of NSD and client nodes and and various other values. 
 
-| Node Type | Mandatory | Node Shape (Recommended for max throughput) | Node Count (Production minimum) | Node Shape (Minimum) | Node Count (Minimum) | Comments |
+| Node Type | Mandatory | Node Shape (Recommended) | Node Count (Production minimum) | Node Shape (Minimum) | Node Count (Minimum) | Comments |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `NSD server` | Yes | BM.Standard2.52 or BM.Standard.E2.64 | 2 | VM.Standard2.8 | 2 | Bare metal nodes with 2 physical NIC's for Production. |
-| `CES server` | No | BM.Standard2.52 or BM.Standard.E2.64 | 2 | - | 0 | Use 1 for testing, 2 for prod, but this node is optional. Bare metal nodes with 2 physical NIC's for Production. Use only if access via NFS, SMB, Object access and Transparent Cloud Tiering is required |
-| `MGMT GUI server` | No | VM.Standard2.16 or higher | 1 | VM.Standard2.8 | 0 | Add 2, if you want HA for mgmt GUI node |
-| `Client server` | Mandatory | BM.Standard2.52 or BM.Standard.E2.64 or VM.Standard2.24 | 1 | VM.Standard2.8 | 1 | Throughput received will depend on shape selected. You can have many clients |
+| `NSD server` | Yes | BM.Standard2.52 (Recommended) | 2 | Any Intel OCI Compute shape | 2 | Intel only. Bare metal nodes with 2 physical NIC's are recommended for Production. |
+| `CES server` | No | BM.Standard2.52 | 2 | Any Intel OCI Compute shape | 0 | Intel Only.  Use 1 for testing, 2 for prod, but this node is optional. Bare metal nodes with 2 physical NIC's recommended for Production. Use only if access via NFS, SMB, Object access and Transparent Cloud Tiering is required |
+| `MGMT GUI server` | No | VM.Standard2.16 or higher | 1 | Any Intel OCI Compute shape | 0 | Intel Only. Add 2, if you want HA for mgmt GUI node |
+| `Client server` | Mandatory | Baremetal or VM - Standard or DenseIO. See [OCI Compute shapes](https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) | 1 | Any shape | 1 | Throughput received will depend on shape selected. You can have many clients |
 | `Bastion server` | Mandatory | VM.Standard2.1 / VM.Standard.E2.1 or higher | 1 | - | 1 | Required |
-| `Windows SMB client` | No | VM.Standard2.4 | 1 | VM.Standard2.4 | 0 | Template builds one just for testing, optional |
-| `NFS client` | No | Use bastion node for testing, so need for seperate node | 1 | - | 0 | Template builds one just for testing, optional |
+| `Windows SMB client` | No | VM.Standard2.4 | 1 | VM.Standard2.4 | 0 | You can create a node using the Template,  but by default, its not created. (Optional) |
+| `NFS client` | No | Any Compute shape | 1 | - | 0 | For testing, you can use Bastion node as your NFS client |
+| `TCT server` | No | Any Compute shape | 1 | - | 0 | For testing, you can use Bastion node as your NFS client |
 
 
 
@@ -50,7 +64,12 @@ This is optional, but you can update the variables.tf to change compute shapes t
 Deploy using standard Terraform commands
 
         terraform init && terraform plan
+        terraform apply
+        
+For large clusters, use the below to ensure deployment does not fail due to API throttle limits
+
         terraform apply -parallelism=3
+
 
 
 ## Terraform apply - output 
