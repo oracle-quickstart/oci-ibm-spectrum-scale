@@ -43,18 +43,18 @@ Now, you'll want a local copy of this repo.  You can make that with the commands
 
 
 ## Update variables.tf file (optional)
-This is optional, but you can update the variables.tf to change compute shapes to use for NSD servers, dataReplica, # of NSD disks, # of NSD and client nodes and and various other values. 
+This is optional, but you can update the variables.tf to change compute shapes to use for NSD servers, dataReplica, # of NSD disks, # of NSD and client nodes and and various other values.  See [OCI Compute shapes](https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) for more details. 
 
 | Node Type | Mandatory | Node Shape (Recommended) | Node Count (Production minimum) | Node Shape (Minimum) | Node Count (Minimum) | Comments |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | `NSD server` | Yes | BM.Standard2.52 (Recommended) | 2 | Any Intel OCI Compute shape | 2 | Intel only. Bare metal nodes with 2 physical NIC's are recommended for Production. |
 | `CES server` | No | BM.Standard2.52 | 2 | Any Intel OCI Compute shape | 0 | Intel Only.  Use 1 for testing, 2 for prod, but this node is optional. Bare metal nodes with 2 physical NIC's recommended for Production. Use only if access via NFS, SMB, Object access and Transparent Cloud Tiering is required |
 | `MGMT GUI server` | No | VM.Standard2.16 or higher | 1 | Any Intel OCI Compute shape | 0 | Intel Only. Add 2, if you want HA for mgmt GUI node |
-| `Client server` | Mandatory | Baremetal or VM - Standard or DenseIO. See [OCI Compute shapes](https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) | 1 | Any shape | 1 | Throughput received will depend on shape selected. You can have many clients |
+| `Client server` | Mandatory | Baremetal or VM - Standard or DenseIO. See [OCI Compute shapes](https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) | 1 | Any OCI Compute shape | 1 | Throughput received will depend on shape selected. You can have many clients |
 | `Bastion server` | Mandatory | VM.Standard2.1 / VM.Standard.E2.1 or higher | 1 | - | 1 | Required |
 | `Windows SMB client` | No | VM.Standard2.4 | 1 | VM.Standard2.4 | 0 | You can create a node using the Template,  but by default, its not created. (Optional) |
 | `NFS client` | No | Any Compute shape | 1 | - | 0 | For testing, you can use Bastion node as your NFS client |
-| `TCT server` | No | Any Compute shape | 1 | - | 0 | For testing, you can use Bastion node as your NFS client |
+| `TCT server` | No | Any Compute shape | 1 | - | 0 | Reach out to OCI HPC team or your account representative. |
 
 
 
