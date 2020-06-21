@@ -172,57 +172,6 @@ variable "installer_node" { default = "1" }
 
 variable "scripts_directory" { default = "../network_shared_disk_server_model_scripts" }
 
-variable "volume_attach_device_mapping" {
-  type = map(string)
-  default = {
-    "0" = "/dev/oracleoci/oraclevdb"
-    "1" = "/dev/oracleoci/oraclevdc"
-    "2" = "/dev/oracleoci/oraclevdd"
-    "3" = "/dev/oracleoci/oraclevde"
-    "4" = "/dev/oracleoci/oraclevdf"
-    "5" = "/dev/oracleoci/oraclevdg"
-    "6" = "/dev/oracleoci/oraclevdh"
-    "7" = "/dev/oracleoci/oraclevdi"
-    "8" = "/dev/oracleoci/oraclevdj"
-    "9" = "/dev/oracleoci/oraclevdk"
-    "10" = "/dev/oracleoci/oraclevdl"
-    "11" = "/dev/oracleoci/oraclevdm"
-    "12" = "/dev/oracleoci/oraclevdn"
-    "13" = "/dev/oracleoci/oraclevdo"
-    "14" = "/dev/oracleoci/oraclevdp" 
-    "15" = "/dev/oracleoci/oraclevdq"
-    "16" = "/dev/oracleoci/oraclevdr"
-    "17" = "/dev/oracleoci/oraclevds"
-    "18" = "/dev/oracleoci/oraclevdt"
-    "19" = "/dev/oracleoci/oraclevdu"
-    "20" = "/dev/oracleoci/oraclevdv"
-    "21" = "/dev/oracleoci/oraclevdw"
-    "22" = "/dev/oracleoci/oraclevdx"
-    "23" = "/dev/oracleoci/oraclevdy"
-    "24" = "/dev/oracleoci/oraclevdz"
-    "25" = "/dev/oracleoci/oraclevdaa"
-    "26" = "/dev/oracleoci/oraclevdab"
-    "27" = "/dev/oracleoci/oraclevdac"
-    "28" = "/dev/oracleoci/oraclevdad"
-    "29" = "/dev/oracleoci/oraclevdae"
-    "30" = "/dev/oracleoci/oraclevdaf"
-    "31" = "/dev/oracleoci/oraclevdag"
-  }
-}
-
-# Please do not change them. These are for multi-attach block volume Terraform logic.
-variable "total_nsd_node_pools_list" {
-  type = list(number)
-  default = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
-}
-variable "nsd_nodes_per_pool_list" {
-  type = list(number)
-  default = [0,1,2]
-}
-variable "block_volumes_per_pool_list" {
-  type = list(number)
-  default = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
-}
 
 ###############
 
