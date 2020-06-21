@@ -32,6 +32,10 @@ If you already have license for Spectrum Scale,  then you can download it from [
 ### 2. OCI Terraform configuration
 First off you'll need to do some pre deploy setup on your local machine to use Terraform with Oracle Cloud Infrastructure.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
 
+### 3. OCI Command Line Interface (CLI) Tool configuration
+The template also uses OCI CLI tool.  Follow the link below to download, install and configure it on your local machine. 
+[OCI CLI Quickstart](https://docs.cloud.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm)
+
 
 ## Clone the Terraform template
 Now, you'll want a local copy of this repo.  You can make that with the commands:
@@ -43,7 +47,7 @@ Now, you'll want a local copy of this repo.  You can make that with the commands
 
 
 ## Update variables.tf file (optional)
-This is optional, but you can update the variables.tf to change compute shapes to use for NSD servers, dataReplica, # of NSD disks, # of NSD and client nodes and and various other values.  See [OCI Compute shapes](https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) for more details. 
+Update the variables.tf to provide the link to Spectrum Scale binary software & its version, change compute shapes to use for NSD servers, dataReplica, # of NSD disks, # of NSD and client nodes and and various other values.  See [OCI Compute shapes](https://docs.cloud.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm) for more details. 
 
 | Node Type | Mandatory | Node Shape (Recommended) | Node Count (Production minimum) | Node Shape (Minimum) | Node Count (Minimum) | Comments |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
