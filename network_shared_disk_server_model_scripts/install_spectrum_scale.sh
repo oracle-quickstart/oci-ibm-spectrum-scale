@@ -7,18 +7,33 @@ curl -O $downloadUrl -s
 # if download fails due to intermittent error
 while [ $? -ne 0 ]; do
   rm -rf /tmp/Spectrum_Scale_Data_Management-*
+  rm -rf "/tmp/Spectrum Scale*"
   curl -O $downloadUrl -s
 done
 
-while [ ! -f /tmp/Spectrum_Scale_Data_Management-${version}-x86_64-Linux-install ];
+echo $downloadUrl | grep "Developer" | grep "zip$"
+if [ $? -eq 0 ]; then
+  SS_DE=true
+  zip_filepath=`ls /tmp/*  | grep "Developer" | grep "${version}" | grep "zip$" `
+  unzip "$zip_filepath"
+  install_dir=`ls -d  /tmp/*/ | grep "Developer" | grep "Edition" `
+  cd """$install_dir"""
+  cp Spectrum_Scale_Developer-${version}-x86_64-Linux-install /tmp/
+  install_filepath="/tmp/Spectrum_Scale_Developer-${version}-x86_64-Linux-install"
+else
+  SS_DE=false
+  install_filepath="/tmp/Spectrum_Scale_Data_Management-${version}-x86_64-Linux-install"
+fi
+
+while [ ! -f $install_filepath ];
 do
   sleep 5s
   echo "Waiting for download"
 done
 
+chmod +x $install_filepath
+$install_filepath --silent
 
-chmod +x Spectrum_Scale_Data_Management-${version}-x86_64-Linux-install
-./Spectrum_Scale_Data_Management-${version}-x86_64-Linux-install --silent
 
 echo "$version" > /etc/yum/vars/spec_scale_ver
 
@@ -48,7 +63,8 @@ baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/zimon_rpms/rhel7
 gpgcheck=0
 enabled=1' > /etc/yum.repos.d/spectrum-scale.repo
 
-if ( [ "$version" = "5.0.5.0" ] || [ "$version" = "5.0.4.0" ] ); then
+echo $version | egrep "5.0.5|5.0.4"
+if ( [ $? -eq 0 ] ); then
 echo '[spectrum_scale-gpfs-optional-5050]
 name = Spectrum Scale - GPFS-5050
 baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/gpfs_rpms/rhel

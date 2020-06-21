@@ -116,7 +116,7 @@ locals {
   dual_nics_hpc_shape = (length(regexall("HPC2", var.nsd_node["shape"])) > 0 ? true : false)
 
   dual_nics_ces_node = (length(regexall("^BM", var.ces_node["shape"])) > 0 ? true : false)
-  dual_nics_ces_hpc_shape = (length(regexall("^HPC2", var.ces_node["shape"])) > 0 ? true : false)
+  dual_nics_ces_hpc_shape = (length(regexall("HPC2", var.ces_node["shape"])) > 0 ? true : false)
 #vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
   vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
 

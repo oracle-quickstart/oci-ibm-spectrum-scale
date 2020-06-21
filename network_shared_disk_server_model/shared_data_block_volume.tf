@@ -8,6 +8,16 @@ resource "oci_core_volume" "shared_data_block_volume" {
   compartment_id      = var.compartment_ocid
   display_name        = "SharedData${count.index+1}"
   size_in_gbs         = var.nsd["size"]
+  vpus_per_gb         = var.volume_type_vpus_per_gb_mapping[("High")]
 }
 
 
+variable "volume_type_vpus_per_gb_mapping" {
+  type = map(string)
+  default = {
+    "High"     = 20
+    "Balanced" = 10
+    "Low"      = 0
+    "None"     = -1
+  }
+}

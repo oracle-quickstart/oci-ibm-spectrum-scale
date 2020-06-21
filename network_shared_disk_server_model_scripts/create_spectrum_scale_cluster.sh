@@ -15,6 +15,8 @@ if [ $? -eq 0 ] ; then
       if [ $qcount -le 5 ]; then
         echo "${hname}:quorum-manager" >> /root/node.stanza
         qcount=$((qcount+1))
+      else
+        echo "${hname}" >> /root/node.stanza
       fi
     fi
     echo "$hname" | grep -q $clientNodeHostnamePrefix
@@ -136,7 +138,7 @@ mmstartup -N clientNodes
 while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
 
 
-  # Consolidate into a single file,  since both failure groups needs to be in the same file, for the command the work.
+  # Consolidate, since both failure groups needs to be in the same file, for the command the work.
   rm /tmp/nsd.stanza.sv${nsdNodesPerPool}.consolidated
   for poolIndex in `seq 1 $totalNsdNodePools`;
   do
@@ -145,16 +147,12 @@ while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNode
     sleep 15s
   done
 
-  # Create a file system fs1
+  # Create file system
   mmcrfs fs1  -F /tmp/nsd.stanza.sv${nsdNodesPerPool}.consolidated -B $blockSize -m $metadataReplica -M 2 -r $dataReplica -R 2
   sleep 60s
 
-  # Balance the occupancy across all NSDs.
   mmrestripefs fs1 -b
-  # sleep 120s
 
-
-  # Check if all NSDs are attached to the filesystem.
   mmlsnsd
   mmlsfs fs1
   mmlsdisk fs1 -L
@@ -180,9 +178,6 @@ while [ `mmgetstate -a  | grep "$cesNodeHostnamePrefix" | grep "active" | wc -l`
 # To ensure pmcollector is installed on only GUI mgmt nodes.
 #   mmdsh -N all "rpm -qa | grep gpfs.gss.pmcollector"
 
-# Step1.  Add the nodes to existing GPFS cluster.
-# Step 2.  Assign proper license to the newly added nodes.
-# Step 3.  Configure pagepool for the GUI nodes.
 for node in `cat /tmp/mgmtguinodehosts` ; do
   mmaddnode -N $node
   mmchlicense client --accept -N $node
@@ -194,20 +189,5 @@ done
 fi
 
 exit 0;
-
-# NOTES #
-# Correct GPFS restart procedure
-#   mmumount fs1 -a
-#   mmshutdown -a
-#   mmstartup -N nsdNodes
-#   while [ `mmgetstate -a | grep "active" | wc -l` -lt $((nsdNodeCount)) ] ; do echo "waiting for server nodes of cluster to start ..." ; sleep 10s; done;
-
-#   mmumount fs1 -a
-#   sleep 15s
-#   mmmount fs1 -a
-#   sleep 15s
-
-#   mmstartup -N clientNodes
-#   while [ `mmgetstate -a | grep "active" | wc -l` -lt $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
 
 

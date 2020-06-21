@@ -10,7 +10,6 @@ if [ $? -eq 0 ] ; then
   done
 fi
 
-# Run the iscsi commands
 echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
 

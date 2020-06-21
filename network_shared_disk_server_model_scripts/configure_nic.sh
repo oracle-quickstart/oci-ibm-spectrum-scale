@@ -23,16 +23,23 @@ EOF
 
   systemctl enable secondnic.service
   systemctl start secondnic.service
+  sleep 10s
   vnic_cnt=`/root/secondary_vnic_all_configure.sh | grep "ocid1.vnic." | grep " UP " | wc -l` ;
   RC=1
+  interface=""
   while ( [ $vnic_cnt -le 1 ] || [ $RC -ne 0 ] )
   do
-    echo "sleep 10s"
-    sleep 10
     systemctl restart secondnic.service
-    RC=$?
-    # sometimes takes awhile after restart
-    sleep 5s
+    echo "sleep 10s"
+    sleep 10s
+    privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+    interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
+    if [ -z $interface ]; then
+      # repeat loop
+      RC=1
+    else
+      RC=0
+    fi
     vnic_cnt=`/root/secondary_vnic_all_configure.sh | grep "ocid1.vnic." | grep " UP " | wc -l` ;
   done
 
@@ -43,7 +50,7 @@ socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | so
 
 
 #  configure 1st NIC
-privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[0].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+privateIp=`curl -s $MDATA_VNIC_URL | jq '.[0].privateIp ' | sed 's/"//g' ` ; echo $privateIp
 interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
 
 hpc_node=false
@@ -73,19 +80,21 @@ else
 
   configure_vnics
   # check if 1 or 2 VNIC.
-  vnic_count=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '. | length'`
+  vnic_count=`curl -s $MDATA_VNIC_URL | jq '. | length'`
 
   if [ $vnic_count -gt 1 ] ; then
     echo "2 VNIC setup"
 
-    privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+    privateIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
     interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
 
     if [ "$intel_node" = "true" ];  then
       if [ "$hpc_node" = "true" ];  then
         echo "don't tune on hpc shape"
       else
-        echo "ETHTOOL_OPTS=\"-G ${interface} rx 2047 tx 2047 rx-jumbo 8191; -L ${interface} combined 74\"" >> /etc/sysconfig/network-scripts/ifcfg-$interface
+        echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
+        echo "ethtool -L $interface combined 74" >> /etc/rc.local
+        chmod +x /etc/rc.local
       fi
     fi
 
@@ -120,13 +129,13 @@ echo $thisHost | grep -q "$cesNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
 
   # NOTE:  This assume 2nd in the list is VIP IP and 3rd will be for privateb subnet
-  privateVipIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ;
+  privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ;
   echo $privateVipIp | grep "\." ;
   while [ $? -ne 0 ];
   do
     sleep 10s
     echo "Waiting for IP of VNIC to get configured..."
-    privateVipIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ;
+    privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ;
     echo $privateVipIp | grep "\." ;
   done
   echo "$privateVipIp" >> /tmp/ces_vip_ips

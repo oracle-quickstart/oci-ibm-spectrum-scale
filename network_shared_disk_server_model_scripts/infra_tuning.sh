@@ -61,7 +61,7 @@ if [ $? -eq 0 ] ; then
 fi
 
 
-# before applying to client nodes, make sure they have enough memory.
+# make sure client nodes they have enough memory.
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ; echo $coreIdCount
@@ -69,15 +69,13 @@ if [ $? -eq 0 ] ; then
   if [ $((socketCount*coreIdCount)) -gt 4  ]; then
     tuned-adm profile gpfs-oci-performance
   else
-    # Client is using shape with less than 4 physical cores and less 30GB memory, above tuned profile requires atleast 16GB of vm.min_free_kbytes, hence let user evaluate what are valid values for such small compute shapes.
+    # Client with less than 4 physical cores and less 30GB memory, above tuned profile requires atleast 16GB of vm.min_free_kbytes, hence let user do manual tuning.
     echo "skip profile tuning..."
   fi ;
 fi;
 
-# Display active profile
 tuned-adm active
 
-# only for client nodes
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   echo off > /sys/devices/system/cpu/smt/control

@@ -69,9 +69,9 @@ resource "null_resource" "multi_attach_shared_data_bv_to_nsd_nodes" {
   /*
     length(local.multi_attach_command_list)
   */
-
+  # 60-200
   provisioner "local-exec" {
-    command = "delay=`shuf -i 60-200 -n 1` ; echo $delay ; sleep $delay ; ${local.multi_attach_command_list[count.index]} ; "
+    command = "delay=`shuf -i 5-30 -n 1` ; echo $delay ; sleep $delay ; ${local.multi_attach_command_list[count.index]} ; "
   }
 
 }
