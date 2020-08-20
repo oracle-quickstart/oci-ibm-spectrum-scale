@@ -45,6 +45,60 @@ EOF
 
 }
 
+function configure_2nd_VNIC {
+
+      configure_vnics
+      # check if 1 or 2 VNIC.
+      vnic_count=`curl -s $MDATA_VNIC_URL | jq '. | length'`
+
+      if [ $vnic_count -gt 1 ] ; then
+        echo "2 VNIC setup"
+
+        privateIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+        interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
+
+        if [ "$intel_node" = "true" ];  then
+          if [ "$hpc_node" = "true" ];  then
+            echo "don't tune on hpc shape"
+          else
+            tune_interface
+          fi
+        fi
+
+        # ensure the below is not empty
+        test=`nslookup $privateIp | grep -q "name = "`
+        while [ $? -ne 0 ];
+        do
+          echo "Waiting for nslookup..."
+          sleep 10s
+          test=`nslookup $privateIp | grep -q "name = "`
+        done
+
+        secondNicFQDNHostname=`nslookup $privateIp | grep "name = " | gawk -F"=" '{ print $2 }' | sed  "s|^ ||g" | sed  "s|\.$||g"`
+        thisFQDN=$secondNicFQDNHostname
+        thisHost=${thisFQDN%%.*}
+        secondNICDomainName=${thisFQDN#*.*}
+        echo $secondNICDomainName
+        primaryNICHostname="`hostname`"
+      else
+        echo "Server nodes with 1 physical NIC - get hostname for 1st NIC..."
+        set_env_variables
+      fi
+}
+
+function tune_interface {
+  ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191
+  ethtool -L $interface combined 74
+  echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
+  echo "ethtool -L $interface combined 74" >> /etc/rc.local
+  chmod +x /etc/rc.local
+}
+
+function set_env_variables {
+  thisFQDN=`hostname --fqdn`
+  thisHost=${thisFQDN%%.*}
+}
+
 coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ;
 socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))` ;
 
@@ -64,60 +118,24 @@ else
     echo "skip for hpc"
     hpc_node=true
   else
-    echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
-    echo "ethtool -L $interface combined 74" >> /etc/rc.local
-    chmod +x /etc/rc.local
+    tune_interface
   fi
 fi
 
 #   configure 2nd NIC
 echo `hostname` | grep -q "$clientNodeHostnamePrefix\|$mgmtGuiNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
-  thisFQDN=`hostname --fqdn`
-  thisHost=${thisFQDN%%.*}
-  echo "thisFQDN=$thisFQDN  and thisHost=$thisHost"
+  set_env_variables
 else
-
-  configure_vnics
-  # check if 1 or 2 VNIC.
-  vnic_count=`curl -s $MDATA_VNIC_URL | jq '. | length'`
-
-  if [ $vnic_count -gt 1 ] ; then
-    echo "2 VNIC setup"
-
-    privateIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
-    interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
-
-    if [ "$intel_node" = "true" ];  then
-      if [ "$hpc_node" = "true" ];  then
-        echo "don't tune on hpc shape"
-      else
-        echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
-        echo "ethtool -L $interface combined 74" >> /etc/rc.local
-        chmod +x /etc/rc.local
-      fi
-    fi
-
-    # ensure the below is not empty
-    test=`nslookup $privateIp | grep -q "name = "`
-    while [ $? -ne 0 ];
-    do
-      echo "Waiting for nslookup..."
-      sleep 10s
-      test=`nslookup $privateIp | grep -q "name = "`
-    done
-
-    secondNicFQDNHostname=`nslookup $privateIp | grep "name = " | gawk -F"=" '{ print $2 }' | sed  "s|^ ||g" | sed  "s|\.$||g"`
-    thisFQDN=$secondNicFQDNHostname
-    thisHost=${thisFQDN%%.*}
-    secondNICDomainName=${thisFQDN#*.*}
-    echo $secondNICDomainName
-    primaryNICHostname="`hostname`"
-
+  echo `hostname` | grep -q "$cesNodeHostnamePrefix"
+  if [ $? -eq 0 ] ; then
+    configure_2nd_VNIC
   else
-    echo "Server nodes with 1 physical NIC - get hostname for 1st NIC..."
-    thisFQDN="`hostname --fqdn`"
-    thisHost="${thisFQDN%%.*}"
+      if [ "$privateSubnetsFQDN" = "$privateBSubnetsFQDN" ]; then
+        set_env_variables
+      else
+        configure_2nd_VNIC
+      fi
   fi
 fi
 
@@ -128,14 +146,14 @@ echo "thisHost=\"$thisHost\"" >> /tmp/gpfs_env_variables.sh
 echo $thisHost | grep -q "$cesNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
 
-  # NOTE:  This assume 2nd in the list is VIP IP and 3rd will be for privateb subnet
-  privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ;
+  # TODO: fix it This assume 3rd in the list is VIP IP and 2nd will be for privateb subnet
+  privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[2].privateIp ' | sed 's/"//g' ` ;
   echo $privateVipIp | grep "\." ;
   while [ $? -ne 0 ];
   do
     sleep 10s
     echo "Waiting for IP of VNIC to get configured..."
-    privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ;
+    privateVipIp=`curl -s $MDATA_VNIC_URL | jq '.[2].privateIp ' | sed 's/"//g' ` ;
     echo $privateVipIp | grep "\." ;
   done
   echo "$privateVipIp" >> /tmp/ces_vip_ips

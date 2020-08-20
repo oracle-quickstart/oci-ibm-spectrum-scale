@@ -102,19 +102,25 @@ locals {
   #storage_server_dual_nics
   dual_nics_hpc_shape = (length(regexall("HPC2", var.nsd_node["shape"])) > 0 ? true : false)
 
+  dual_vnic = (local.dual_nics ? (local.dual_nics_hpc_shape ? false  : true) : false)
+
+
   dual_nics_ces_node = (length(regexall("^BM", var.ces_node["shape"])) > 0 ? true : false)
   dual_nics_ces_hpc_shape = (length(regexall("HPC2", var.ces_node["shape"])) > 0 ? true : false)
+
+  dual_vnic_ces = (local.dual_nics_ces_node ? (local.dual_nics_ces_hpc_shape ? false  : true) : false)
+
   #vcn_fqdn = (local.dual_nics ? "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : ""  )
-  vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
+#1#vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
 
 ####
 ####  privateSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
 ####  privateBSubnetsFQDN=(local.dual_nics ? "${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
 ####  private_protocol_subnet_fqdn=(local.dual_nics ? "${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com" : "${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"  )
 
-  privateSubnetsFQDN=("${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
-  privateBSubnetsFQDN=("${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
-  private_protocol_subnet_fqdn=("${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
+#1#  privateSubnetsFQDN=("${oci_core_subnet.private.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
+#1#  privateBSubnetsFQDN=("${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
+#1#  private_protocol_subnet_fqdn=("${oci_core_subnet.privateprotocol.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com")
 
 }
 
@@ -270,4 +276,45 @@ variable "imagesOL" {
     us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaaj6pcmnh6y3hdi3ibyxhhflvp3mj2qad4nspojrnxc6pzgn2w3k5q"
     us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaa2wadtmv6j6zboncfobau7fracahvweue6dqipmcd5yj6s54f3wpq"
   }
+}
+
+
+
+
+variable "use_existing_vcn" {
+  default = "false"
+}
+
+variable "vcn_id" {
+  default = "ocid1.vcn.oc1.iad.amaaaaaa7rhxvoaaufglmdw7jvdeeuix3ag6zz5svee4snyzmxabb5q7hpmq"
+}
+
+variable "bastion_subnet_id" {
+  default = "ocid1.subnet.oc1.iad.aaaaaaaaxkfuasory4cwkl7jyrole5gpmq5nmdnxtbmnmuxhs5rgsdmubxaq"
+}
+
+variable "storage_subnet_id" {
+  default = "ocid1.subnet.oc1.iad.aaaaaaaafdditphyjamahq4eveevpci2cifpfsj53fh3a4kfw5p6ba6ymkmq"
+}
+
+variable "fs_subnet_id" {
+  default = "ocid1.subnet.oc1.iad.aaaaaaaa3epu2pbkwi4ae3pvn2exeom3pmzypm7w3lunndubburic2xlte7a"
+}
+
+variable "protocol_subnet_id" {
+  default = "ocid1.subnet.oc1.iad.aaaaaaaa3epu2pbkwi4ae3pvn2exeom3pmzypm7w3lunndubburic2xlte7a"
+}
+
+locals {
+  bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
+  storage_subnet_id   = var.use_existing_vcn ? var.storage_subnet_id : element(concat(oci_core_subnet.storage.*.id, [""]), 0)
+  fs_subnet_id        = var.use_existing_vcn ? var.fs_subnet_id : local.dual_vnic ? element(concat(oci_core_subnet.fs.*.id, [""]), 0) :  element(concat(oci_core_subnet.storage.*.id, [""]), 0)
+  client_subnet_id    = local.fs_subnet_id 
+  protocol_subnet_id  = var.use_existing_vcn ? var.protocol_subnet_id : element(concat(oci_core_subnet.protocol_subnet.*.id, [""]), 0)
+
+  storage_subnet_domain_name=("${data.oci_core_subnet.storage_subnet.dns_label}.${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+  filesystem_subnet_domain_name= ( local.dual_vnic ? "${data.oci_core_subnet.fs_subnet.dns_label}.${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" : "${data.oci_core_subnet.storage_subnet.dns_label}.${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+  vcn_domain_name=("${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+  protocol_subnet_domain_name= ( "${data.oci_core_subnet.protocol_subnet.dns_label}.${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+
 }

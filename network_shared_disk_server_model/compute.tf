@@ -8,10 +8,11 @@ resource "oci_core_instance" "nsd_node" {
   availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (local.nsd_node_count / 2)) ? local.site1 : local.site2)],"name")
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
-  display_name        = "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}"
-  hostname_label      = "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}"
+  display_name        = (local.dual_vnic ? "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}" : "${var.nsd_node["hostname_prefix"]}${format("%01d", count.index+1)}")
+  hostname_label      = (local.dual_vnic ? "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}" : "${var.nsd_node["hostname_prefix"]}${format("%01d", count.index+1)}")
   shape               = var.nsd_node["shape"]
-  subnet_id           = oci_core_subnet.private.*.id[0]
+  subnet_id           = local.storage_subnet_id
+#1# oci_core_subnet.private.*.id[0]
 
   source_details {
     source_type = "image"
@@ -41,9 +42,9 @@ resource "oci_core_instance" "nsd_node" {
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
         "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
-        "vcnFQDN=\"${local.vcn_fqdn}\"",
-        "privateSubnetsFQDN=\"${local.privateSubnetsFQDN}\"",
-        "privateBSubnetsFQDN=\"${local.privateBSubnetsFQDN}\"",
+        "vcnFQDN=\"${local.vcn_domain_name}\"",
+        "privateSubnetsFQDN=\"${local.storage_subnet_domain_name}\"",
+        "privateBSubnetsFQDN=\"${local.filesystem_subnet_domain_name}\"",
         "companyName=\"${var.callhome["company_name"]}\"",
         "companyID=\"${var.callhome["company_id"]}\"",
         "countryCode=\"${var.callhome["country_code"]}\"",
@@ -52,7 +53,7 @@ resource "oci_core_instance" "nsd_node" {
         "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
         "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
         "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
-        "privateProtocolSubnetFQDN=\"${local.private_protocol_subnet_fqdn}\"",
+        "privateProtocolSubnetFQDN=\"${local.protocol_subnet_domain_name}\"",
         file("${var.scripts_directory}/firewall.sh"),
         file("${var.scripts_directory}/set_env_variables.sh"),
         file("${var.scripts_directory}/update_resolv_conf.sh"),
@@ -83,7 +84,8 @@ resource "oci_core_instance" "client_node" {
   shape               = var.client_node["shape"]
 ####  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
    #
-  subnet_id           = element(oci_core_subnet.privateb.*.id, 0)
+#1# subnet_id           = element(oci_core_subnet.privateb.*.id, 0)
+  subnet_id           = local.client_subnet_id
 
   source_details {
     source_type = "image"
@@ -113,9 +115,9 @@ resource "oci_core_instance" "client_node" {
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
         "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
-        "vcnFQDN=\"${local.vcn_fqdn}\"",
-        "privateSubnetsFQDN=\"${local.privateSubnetsFQDN}\"",
-        "privateBSubnetsFQDN=\"${local.privateBSubnetsFQDN}\"",
+        "vcnFQDN=\"${local.vcn_domain_name}\"",
+        "privateSubnetsFQDN=\"${local.storage_subnet_domain_name}\"",
+        "privateBSubnetsFQDN=\"${local.filesystem_subnet_domain_name}\"",
         "companyName=\"${var.callhome["company_name"]}\"",
         "companyID=\"${var.callhome["company_id"]}\"",
         "countryCode=\"${var.callhome["country_code"]}\"",
@@ -124,7 +126,7 @@ resource "oci_core_instance" "client_node" {
         "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
         "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
         "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
-        "privateProtocolSubnetFQDN=\"${local.private_protocol_subnet_fqdn}\"",
+        "privateProtocolSubnetFQDN=\"${local.protocol_subnet_domain_name}\"",
         file("${var.scripts_directory}/firewall.sh"),
         file("${var.scripts_directory}/set_env_variables.sh"),
         file("${var.scripts_directory}/update_resolv_conf.sh"),
@@ -156,7 +158,8 @@ resource "oci_core_instance" "bastion" {
   hostname_label      = "${var.bastion["hostname_prefix"]}${format("%01d", count.index+1)}"
 
   create_vnic_details {
-    subnet_id              = oci_core_subnet.public.*.id[0]
+    subnet_id              = local.bastion_subnet_id
+    #1# subnet_id              = oci_core_subnet.public.*.id[0]
     skip_source_dest_check = true
   }
 

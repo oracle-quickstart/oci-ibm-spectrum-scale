@@ -10,7 +10,8 @@ resource "oci_core_instance" "mgmt_gui_node" {
   shape               = var.mgmt_gui_node["shape"]
 #  subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
 ####  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
-subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
+#1# subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
+  subnet_id           = local.client_subnet_id
 
 
   source_details {
@@ -41,9 +42,9 @@ subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
         "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
-        "vcnFQDN=\"${local.vcn_fqdn}\"",
-        "privateSubnetsFQDN=\"${local.privateSubnetsFQDN}\"",
-        "privateBSubnetsFQDN=\"${local.privateBSubnetsFQDN}\"",
+        "vcnFQDN=\"${local.vcn_domain_name}\"",
+        "privateSubnetsFQDN=\"${local.storage_subnet_domain_name}\"",
+        "privateBSubnetsFQDN=\"${local.filesystem_subnet_domain_name}\"",
         "companyName=\"${var.callhome["company_name"]}\"",
         "companyID=\"${var.callhome["company_id"]}\"",
         "countryCode=\"${var.callhome["country_code"]}\"",
@@ -52,7 +53,7 @@ subnet_id           = element(concat(oci_core_subnet.privateb.*.id, [""]), 0)
         "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
         "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
         "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
-        "privateProtocolSubnetFQDN=\"${local.private_protocol_subnet_fqdn}\"",
+        "privateProtocolSubnetFQDN=\"${local.protocol_subnet_domain_name}\"",
         file("${var.scripts_directory}/firewall.sh"),
         file("${var.scripts_directory}/set_env_variables.sh"),
         file("${var.scripts_directory}/update_resolv_conf.sh"),

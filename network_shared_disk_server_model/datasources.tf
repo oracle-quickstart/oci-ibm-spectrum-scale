@@ -4,3 +4,19 @@ data "oci_identity_availability_domains" "ADs" {
 }
 
 
+
+data "oci_core_vcn" "vcn" {
+  vcn_id = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.vcn[0].id
+}
+
+data "oci_core_subnet" "storage_subnet" {
+  subnet_id = var.use_existing_vcn ? var.storage_subnet_id : local.storage_subnet_id
+}
+
+data "oci_core_subnet" "fs_subnet" {
+  subnet_id = var.use_existing_vcn ? var.fs_subnet_id : local.fs_subnet_id
+}
+
+data "oci_core_subnet" "protocol_subnet" {
+  subnet_id = var.use_existing_vcn ? var.protocol_subnet_id : local.protocol_subnet_id
+}
