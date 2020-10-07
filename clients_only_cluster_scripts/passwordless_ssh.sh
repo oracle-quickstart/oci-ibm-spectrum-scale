@@ -41,7 +41,6 @@ find_cluster_nodes () {
 # Subnet used for GPFS network
 domainName=${privateBSubnetsFQDN}
 
-
 nodeType="client"
 nodeHostnamePrefix=$clientNodeHostnamePrefix
 nodeCount=$clientNodeCount
@@ -73,6 +72,7 @@ for host_fqdn in `cat /tmp/allnodehosts` ; do
   host=${host_fqdn%%.*}
   do_ssh_keyscan
   host_ip=`nslookup $host_fqdn | grep "Address: " | gawk '{print $2}'`
+  host=$host_ip
   do_ssh_keyscan
   # update /etc/hosts file on all nodes with ip, fqdn and hostname of all nodes
   echo "$host_ip ${host_fqdn} ${host_fqdn%%.*}" >> /etc/hosts

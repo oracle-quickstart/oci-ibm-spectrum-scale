@@ -80,18 +80,34 @@ fi
 
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
-  # This might be applicable only for compute-n nodes.  Its unclear from recommendations doc.
-  # require restart for the change to be effective
-  echo "* soft nofile 500000" >> /etc/security/limits.conf
-  echo "* soft nproc 131072" >> /etc/security/limits.conf
-  echo "* hard nofile 500000" >> /etc/security/limits.conf
-  echo "* hard nproc 131072" >> /etc/security/limits.conf
 
-  # To set values for current session
-  ulimit -n 500000
-  ulimit -u 131072
-  echo "ulimit -n 500000 >>  ~/.bash_profile
-  echo "ulimit -u 131072 >>  ~/.bash_profile
+echo '
+*   soft    memlock      -1
+*   hard    memlock      -1
+*   soft    rss          -1
+*   hard    rss          -1
+*   soft    core          -1
+*   hard    core          -1
+*   soft    maxlogins     8192
+*   hard    maxlogins     8192
+*   soft    stack         -1
+*   hard    stack         -1
+*   soft    nproc         2067554
+*   hard    nproc         2067554
+* soft nofile 500000
+* hard nofile 500000
+' >> /etc/security/limits.conf
+
+echo '
+ulimit -l unlimited
+ulimit -m unlimited
+ulimit -c unlimited
+ulimit -s unlimited
+ulimit -u 2067554
+ulimit -n 500000
+' >>  ~/.bash_profile
+
 fi
 
 cd -
+

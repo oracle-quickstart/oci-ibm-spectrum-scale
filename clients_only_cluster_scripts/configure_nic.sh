@@ -1,47 +1,131 @@
-#   configure 2nd NIC
-echo `hostname` | grep -q "$clientNodeHostnamePrefix"
-if [ $? -eq 0 ] ; then
+MDATA_VNIC_URL="http://169.254.169.254/opc/v1/vnics/"
+
+function configure_vnics {
+  # Configure second vNIC
+  scriptsource="https://raw.githubusercontent.com/oracle/terraform-examples/master/examples/oci/connect_vcns_using_multiple_vnics/scripts/secondary_vnic_all_configure.sh"
+  vnicscript=/root/secondary_vnic_all_configure.sh
+  curl -s $scriptsource > $vnicscript
+  chmod +x $vnicscript
+  cat > /etc/systemd/system/secondnic.service << EOF
+[Unit]
+Description=Script to configure a secondary vNIC
+
+[Service]
+Type=oneshot
+ExecStart=$vnicscript -c
+ExecStop=$vnicscript -d
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+  systemctl enable secondnic.service
+  systemctl start secondnic.service
+  sleep 10s
+  vnic_cnt=`/root/secondary_vnic_all_configure.sh | grep "ocid1.vnic." | grep " UP " | wc -l` ;
+  RC=1
+  interface=""
+  while ( [ $vnic_cnt -le 1 ] || [ $RC -ne 0 ] )
+  do
+    systemctl restart secondnic.service
+    echo "sleep 10s"
+    sleep 10s
+    privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+    interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
+    if [ -z $interface ]; then
+      # repeat loop
+      RC=1
+    else
+      RC=0
+    fi
+    vnic_cnt=`/root/secondary_vnic_all_configure.sh | grep "ocid1.vnic." | grep " UP " | wc -l` ;
+  done
+
+}
+
+function configure_2nd_VNIC {
+
+      configure_vnics
+      # check if 1 or 2 VNIC.
+      vnic_count=`curl -s $MDATA_VNIC_URL | jq '. | length'`
+
+      if [ $vnic_count -gt 1 ] ; then
+        echo "2 VNIC setup"
+
+        privateIp=`curl -s $MDATA_VNIC_URL | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+        interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
+
+        if [ "$intel_node" = "true" ];  then
+          if [ "$hpc_node" = "true" ];  then
+            echo "don't tune on hpc shape"
+          else
+            tune_interface
+          fi
+        fi
+
+        # ensure the below is not empty
+        test=`nslookup $privateIp | grep -q "name = "`
+        while [ $? -ne 0 ];
+        do
+          echo "Waiting for nslookup..."
+          sleep 10s
+          test=`nslookup $privateIp | grep -q "name = "`
+        done
+
+        secondNicFQDNHostname=`nslookup $privateIp | grep "name = " | gawk -F"=" '{ print $2 }' | sed  "s|^ ||g" | sed  "s|\.$||g"`
+        thisFQDN=$secondNicFQDNHostname
+        thisHost=${thisFQDN%%.*}
+        secondNICDomainName=${thisFQDN#*.*}
+        echo $secondNICDomainName
+        primaryNICHostname="`hostname`"
+      else
+        echo "Server nodes with 1 physical NIC - get hostname for 1st NIC..."
+        set_env_variables
+      fi
+}
+
+function tune_interface {
+  ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191
+  ethtool -L $interface combined 74
+  echo "ethtool -G $interface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
+  echo "ethtool -L $interface combined 74" >> /etc/rc.local
+  chmod +x /etc/rc.local
+}
+
+function set_env_variables {
   thisFQDN=`hostname --fqdn`
   thisHost=${thisFQDN%%.*}
-  echo "thisFQDN=$thisFQDN  and thisHost=$thisHost"
-fi
+}
+
+coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ;
+socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))` ;
+
 
 #  configure 1st NIC
-ifconfig | grep "^eno2:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="eno2"
-fi
-ifconfig | grep "^ens3:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="ens3"
-fi
+privateIp=`curl -s $MDATA_VNIC_URL | jq '.[0].privateIp ' | sed 's/"//g' ` ; echo $privateIp
+interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
 
-ifconfig | grep "^enp70s0f0:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="enp70s0f0"
-fi
-ifconfig | grep "^eno1:"
-if [ $? -eq 0 ] ; then
-  primaryNICInterface="eno1"
-fi
-
-# Intel or AMD
+hpc_node=false
+intel_node=true
 lscpu | grep "Vendor ID:"  | grep "AuthenticAMD"
 if [ $? -eq 0 ];  then
-  echo "do nothing"
+  echo "do nothing - AMD"
+  intel_node=false
 else
-  echo Intel
-  # For Intel shapes, it degrades n/w performance on AMD
-  ethtool -G $primaryNICInterface rx 2047 tx 2047 rx-jumbo 8191
-  echo "ethtool -G $primaryNICInterface rx 2047 tx 2047 rx-jumbo 8191" >> /etc/rc.local
-  # For BM shapes only and fails on VM shapes, but harmless to still run it
-  echo "ethtool -L $primaryNICInterface combined 74" >> /etc/rc.local
-  chmod +x /etc/rc.local
-  # node needs to be rebooted for rc.local change to be effective.  This is only required for tuning NIC for better performance
+  if [ $((socketCount*coreIdCount)) -eq 36  ]; then
+    echo "skip for hpc"
+    hpc_node=true
+  else
+    tune_interface
+  fi
 fi
 
-# Add host info
+set_env_variables
+# required to include in this file
 echo "thisFQDN=\"$thisFQDN\"" >> /tmp/gpfs_env_variables.sh
 echo "thisHost=\"$thisHost\"" >> /tmp/gpfs_env_variables.sh
+
 
 

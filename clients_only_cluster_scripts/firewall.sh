@@ -1,22 +1,14 @@
-#######################################################"
-################# Turn Off the Firewall ###############"
-#######################################################"
 echo "Turning off the Firewall..."
-which apt-get &> /dev/null
-if [ $? -eq 0 ] ; then
-    echo "" > /etc/iptables/rules.v4
-    echo "" > /etc/iptables/rules.v6
+service firewalld stop
+chkconfig firewalld off
 
-    iptables -F
-    iptables -X
-    iptables -t nat -F
-    iptables -t nat -X
-    iptables -t mangle -F
-    iptables -t mangle -X
-    iptables -P INPUT ACCEPT
-    iptables -P OUTPUT ACCEPT
-    iptables -P FORWARD ACCEPT
+echo `hostname` | grep -q "$clientNodeHostnamePrefix"
+if [ $? -eq 0 ] ; then
+ echo "continue, no sleep required"
 else
-    service firewalld stop
-    chkconfig firewalld off
+  coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l`
+  socketCount=`echo $(($(grep "^physical id" /proc/cpuinfo | awk '{print $4}' | sort -un | tail -1)+1))`
+  if [ $((socketCount*coreIdCount)) -eq 36  ]; then
+    sleep 900s
+  fi
 fi

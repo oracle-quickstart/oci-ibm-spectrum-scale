@@ -3,32 +3,52 @@
 ## Defines variables and local values
 ###
 
-variable "vpc_cidr" { default = "10.0.0.0/16" }
+variable "vpc_cidr" { default = "172.16.0.0/16" }
 
 
 # One bastion node is enough
 variable "bastion" {
-  type = "map"
-  default = {
-    shape      = "VM.Standard2.2"
-    node_count = 1
-    hostname_prefix = "bastion-"
-  }
-}
-
-
-
-
-# Client nodes variables
-variable "client_node" {
-  type = "map"
-  default = {
-    shape      = "VM.Standard2.24"
-    #shape      = "BM.Standard.E2.64"
-    node_count = 4
-    hostname_prefix = "ss-compute-"
+  type = map(string)
+    default = {
+      shape      = "VM.Standard2.2"
+      node_count = 1
+      hostname_prefix = "bastion1-"
     }
 }
+
+
+
+
+# Client nodes variables. Min node required is 3 to have quorum.  For production, with some customization, less than 3 nodes can be supported. 
+variable "client_node" {
+  type = map(string)
+    default = {
+      shape      = "VM.Standard2.4"
+      #shape      = "BM.Standard.E2.64"
+      node_count = 3
+      hostname_prefix = "ss-compute-"
+    }
+}
+
+
+variable "use_existing_vcn" {
+  default = "false"
+}
+
+variable "vcn_id" {
+  default = ""
+}
+
+variable "bastion_subnet_id" {
+  default = ""
+}
+
+# If Spectrum Scale servers are Baremetal nodes, then this should be the "Private-FS-Subnet" subnet OCID.  If Spectrum Scale servers are VMs or BM.HPC2.36, then this should be the "Private-SpectrumScale" subnet OCID.
+variable "fs_subnet_id" {
+  default = ""
+}
+
+
 
 /*
   Spectrum Scale related variables
@@ -37,16 +57,12 @@ variable "client_node" {
   download_url : Should be a http/https link which is accessible from the compute instances we will create. You can use OCI Object Storage bucket with pre-authenticated URL.  example: https://objectstorage.us-ashburn-1.oraclecloud.com/p/DLdr-xxxxxxxxxxxxxxxxxxxx/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install
 */
 variable "spectrum_scale" {
-  type = "map"
-  default = {
-    version      = "5.0.3.2"
-    download_url = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/CHANGEME/n/hpc/b/spectrum_scale/o/Spectrum_Scale_Data_Management-5.0.3.2-x86_64-Linux-install"
-    block_size = "2M"
-    data_replica  = 1
-    metadata_replica = 1
-    gpfs_mount_point = "/gpfs/fs1"
-    high_availability = false
-  }
+  type = map(string)
+    default = {
+      "version"      = "5.0.4.1"
+      "download_url" = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/IIPwjm0Xktrw4ZN-y1pkwHhzEdGRNwi8lSWj_iYiSWl58GPQrm9pNOu5z3wcpI7F/n/hpc_limited_availability/b/spectrum_scale/o/Spectrum%20Scale%205.0.4.1%20Developer%20Edition.zip"
+      high_availability = false
+    }
 }
 
 
@@ -57,28 +73,24 @@ variable "availability_domain" { default = [1,2] }
 #variable "availability_domain" { default = [3,1] }
 
 
+
+
+
+
 locals {
   site1 = (var.spectrum_scale["high_availability"] ? var.availability_domain[0] - 1 : var.availability_domain[0] - 1)
   site2 = (var.spectrum_scale["high_availability"] ? var.availability_domain[1] - 1 : var.availability_domain[0] - 1)
   dual_nics = (length(regexall("^BM", var.client_node["shape"])) > 0 ? true : false)
-  vcn_fqdn = "${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
+  bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
+  fs_subnet_id        = var.use_existing_vcn ? var.fs_subnet_id : element(concat(oci_core_subnet.fs.*.id, [""]), 0)
+  client_subnet_id    = local.fs_subnet_id
+  filesystem_subnet_domain_name= ("${data.oci_core_subnet.fs_subnet.dns_label}.${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+  vcn_domain_name=("${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
 
-  privateBSubnetsFQDN="${oci_core_subnet.privateb.*.dns_label[0]}.${oci_core_virtual_network.gpfs.dns_label}.oraclevcn.com"
 }
 
-# path to download OCI Command Line Tool to perform multi-attach for Block Volumes
-variable "oci_cli_download_url" { default = "http://somehost.com" }
 
 
-variable "callhome" {
-  type = "map"
-  default = {
-    company_name = "Company Name"
-    company_id   = "1234567"
-    country_code = "US"
-    emailaddress = "name@email.com"
-  }
-}
 
 ##################################################
 ## Variables which should not be changed by user
@@ -121,7 +133,7 @@ See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.orac
 Oracle-provided image "CentOS-7-2019.08.26-0"
 https://docs.cloud.oracle.com/iaas/images/image/ea67dd20-b247-4937-bfff-894962212415/
 */
-/* imagesCentOS_Latest */
+/* imagesCentOS */
 variable "images" {
   type = map(string)
   default = {
@@ -139,6 +151,20 @@ variable "images" {
   }
 }
 
+variable "imagesCentos76" {
+  type = map(string)
+  default = {
+    /*
+      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
+      Oracle-provided image "CentOS-7-2018.11.16-0"
+      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
+    */
+    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaatbfzohfzwagb5eplk5abjifwmr5bpytuo2pgyufflpkdfkkb3eca"
+    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaa3p2d4bzgz4gw435tw3522u4d3enh7jwlwpymfgqwp6hrhebs4s2q"
+    uk-london-1    = "ocid1.image.oc1.uk-london-1.aaaaaaaaktvxlhhjs3k57fbloubrbuju7vdyaivdw5pclmva2kwhqhqlewbq"
+    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaavzt7r56xh2lj2w7ibqbkvumxbqr2z2jswoma3qjbunu7wj63rigq"
+  }
+}
 
 # Oracle-Linux-7.6-2019.05.28-0
 # https://docs.cloud.oracle.com/iaas/images/image/6180a2cb-be6c-4c78-a69f-38f2714e6b3d/
