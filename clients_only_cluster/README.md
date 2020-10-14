@@ -1,9 +1,7 @@
 # Spectrum Scale - Clients Only Cluster on OCI
-This Terrrafom template deploys a Spectrum Scale clients only cluster which is typically used in production to seperate the client/compute nodes who access a Spectrum Scale File System cluster (Storage Cluster).  Keeping the Client nodes Spectrum Scale cluster seperate from Spectrum Scale Storage cluster allows customers to manage their compute/client node clusters seperately from their Spectrum Scale Storage cluster.  Also there could be multiple client clusters accessing a single Storage cluster.  
+This Terrrafom template deploys a Spectrum Scale clients only cluster.  The clients only cluster will mount a remote Spectrum Scale File System cluster (Storage Cluster) to access data.   Since its very common in HPC world to spin up/spin down a compute cluster, its best to manage client/compute nodes seperately from Spectrum Scale File System cluster (Storage Cluster).  Also there could be multiple client clusters accessing a single Storage cluster.  
 
-Since its very common in HPC world to spin up/spin down a compute cluster, the above approach allows customer to install Spectrum Scale clients on their HPC client nodes and then remote mount the Spectrum Scale Storage cluster to access file system. 
-
-Note:  This template assumes the Storage Spectrum Scale cluster was already created and this "clients_only_cluster" will not provision any server nodes or storage devices.  For more information on how to create "Storage Spectrum Scale cluster", refer to this link:  [Storage Spectrum Scale cluster](https://github.com/oracle-quickstart/oci-ibm-spectrum-scale/tree/master/network_shared_disk_server_model).
+**Note:**  This template assumes the Storage Spectrum Scale cluster was already created and this "clients_only_cluster" will not provision any server nodes or storage devices.  For more information on how to create "Storage Spectrum Scale cluster", refer to this link:  [Storage Spectrum Scale cluster](https://github.com/oracle-quickstart/oci-ibm-spectrum-scale/tree/master/network_shared_disk_server_model).
 
 
 ## Client Only Nodes Cluster architecture
@@ -32,7 +30,7 @@ Now, you'll want a local copy of this repo.  You can make that with the commands
 
 ## Update variables.tf file (optional)
 This is optional, but you can update the variables.tf to change compute shapes to use, # of client nodes  and various other values. 
-Note:  A minimum of 3 client nodes are required to maintain quorum in a cluster.  There are ways to overcome this requirement for production, but that's not covered in this deployment template. 
+**Note:**  A minimum of 3 client nodes are required to maintain quorum in a cluster.  There are ways to overcome this requirement for production, but that's not covered in this deployment template. 
 
 
 
