@@ -28,11 +28,23 @@ Now, you'll want a local copy of this repo.  You can make that with the commands
 
 
 
-## Update variables.tf file (optional)
-This is optional, but you can update the variables.tf to change compute shapes to use, # of client nodes  and various other values. 
-**Note:**  A minimum of 3 client nodes are required to maintain quorum in a cluster.  There are ways to overcome this requirement for production, but that's not covered in this deployment template. 
+## Update variables.tf file
+Update the variables.tf to set client compute shapes, # of client nodes, IBM Spectrum Scale binary download URL, version and various other values. 
 
 
+- Update compute/client **node_count** and **shape** to provision.  A minimum of 3 client nodes are required to maintain quorum in a cluster.  There are ways to overcome this requirement for production, but that's not covered in this deployment template. 
+
+   ```
+   Client nodes variables. Min node required is 3 to have quorum.  For production, with some customization, less than 3 nodes can be supported. 
+   variable "client_node" {
+     type = map(string)
+       default = {
+         shape      = "VM.Standard2.4"
+         node_count = 3
+         hostname_prefix = "ss-compute-"
+      }
+    }
+    ```
 
 - Update the **version** and **download_url** variables based on version of Spectrum Scale you plan to deploy.  We recommend you upload the Spectrum Scale binary file to OCI Object Storage bucket (private) and create a pre-authenticated URL to access it from all the spectrum scale nodes to be provisioned by the template.   You can also use any other server to host the binaries, provided the server is reachable over the internet without any authentication (no username/password, etc). 
 
