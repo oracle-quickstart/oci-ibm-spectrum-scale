@@ -83,10 +83,12 @@ fs_subnet_id
 
 
 
-## Deployment & Post Deployment
+## Deployment
 
-Deploy using standard Terraform commands
+Deploy using standard Terraform commands.  
 
+
+        cd oci-quickstart-ibm-spectrum-scale/clients_only_cluster
         terraform init && terraform plan
         terraform apply 
 
