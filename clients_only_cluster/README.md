@@ -34,6 +34,43 @@ This is optional, but you can update the variables.tf to change compute shapes t
 
 
 
+- Update the **version** and **download_url** variables based on version of Spectrum Scale you plan to deploy.  We recommend you upload the Spectrum Scale binary file to OCI Object Storage bucket (private) and create a pre-authenticated URL to access it from all the spectrum scale nodes to be provisioned by the template.   You can also use any other server to host the binaries, provided the server is reachable over the internet without any authentication (no username/password, etc). 
+
+  - **download_url** : Should be a http/https link which is accessible from all Spectrum Scale instances we will create.  Assuming you have uploaded the spectrum scale software binary to OCI Object storage private bucket. You can create a preauthenticatedrequests using the steps detailed here - [create pre-authenticated url](https://docs.cloud.oracle.com/en-us/iaas/Content/Object/Tasks/usingpreauthenticatedrequests.htm#usingconsole)
+
+  -  **Note:** The name of the spectrum scale software binary file needs to exactly follow this naming convention.  These are the names of the file by default, when you download it from IBM site.
+      -  For Spectrum Scale Data Management Edition:  Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install
+      -  For Spectrum Scale Developer Edition:        Spectrum Scale 5.0.4.1 Developer Edition.zip
+      -  Once you upload to OCI Object Storage,  the download_url will look like one of the below:
+        -  https://objectstorage.us-ashburn-1.oraclecloud.com/xxxxxxxx/Spectrum_Scale_Data_Management-5.0.3.3-x86_64-Linux-install
+        -  https://objectstorage.us-ashburn-1.oraclecloud.com/xxxxxxxx/Spectrum%20Scale%205.0.4.1%20Developer%20Edition.zip
+
+  -  **version** : Replace the **version** number with the one you plan to use, eg:  5.0.4.1
+
+
+
+
+- Is the client only cluster going to be deployed in an existing VCN?
+  - If no, set **use_existing_vcn** to false, and ignore the **vcn_id, bastion_subnet_id & fs_subnet_id** variable.  The template will create a new VCN using 172.16.0.0/16 CIDR.   Make sure this VCN CIDR does not overlap with VCN CIDR of "Spectrum Scale Storage" cluster.  If it overlaps, then update the **vpc_cidr** variable to use a different non-overlapping CIDR.  
+
+  - If yes,  set the following variables:
+
+
+    - Set **use_existing_vcn** to true 
+    - Set **vcn_id** to existing VCN OCID
+    - Set **bastion_subnet_id** to existing public subnet OCID of existing VCN
+    - Set **fs_subnet_id** to existing private subnet OCID of an existing VCN based on below conditions. 
+
+
+
+      - If the "Spectrum Scale Storage" cluster is also deployed in the same existing VCN, then check 
+If Spectrum Scale servers are Baremetal nodes, then this should be the "Private-FS-Subnet" subnet OCID.  If Spectrum Scale servers are VMs or BM.HPC2.36, then this should be the "Private-SpectrumScale" subnet OCID.   Refer to VCN/Subnet details of "Server Spectrum Scale" Cluster. 
+fs_subnet_id
+
+      - If the "Spectrum Scale Storage" cluster is **NOT** deployed in the same existing VCN and you plan to use VCN local/remote peering,  then provide a private subnet OCID you plan to use to provision the client/compute nodes.  
+
+
+
 ## Deployment & Post Deployment
 
 Deploy using standard Terraform commands
