@@ -1,11 +1,11 @@
 # Spectrum Scale - Clients Only Cluster on OCI
-This Terrrafom template deploys a Spectrum Scale clients only cluster.  The clients only cluster will mount a remote Spectrum Scale File System cluster (Storage Cluster) to access data.   Since its very common in HPC world to spin up/spin down a compute cluster, its best to manage client/compute nodes seperately from Spectrum Scale File System cluster (Storage Cluster).  Also there could be multiple client clusters accessing a single Storage cluster.  
+This Terrrafom template deploys a Spectrum Scale "clients only cluster".  The "clients only cluster" will mount a remote Spectrum Scale File System cluster (Storage Cluster) to access data.   Since its very common in HPC world to spin up/spin down a compute cluster, its best to manage client/compute nodes seperately from Spectrum Scale File System cluster (Storage Cluster).  Also there could be multiple client clusters accessing a single Storage cluster.  
 
 **Note:**  This template assumes the Storage Spectrum Scale cluster was already created and this "clients_only_cluster" will not provision any server nodes or storage devices.  For more information on how to create "Storage Spectrum Scale cluster", refer to this link:  [Storage Spectrum Scale cluster](https://github.com/oracle-quickstart/oci-ibm-spectrum-scale/tree/master/network_shared_disk_server_model).
 
 
 ## Client Only Nodes Cluster architecture
-Given below are architecture diagram which show both the Client Only Spectrum Scale cluster and Storage cluster, but this template will only provision/deploy the IaaS resources for "clients_only_cluster" and install/configure Spectrum Scale binaries.   
+Given below are architecture diagram which show both the Clients Only Spectrum Scale cluster and Storage cluster, but this template will only provision/deploy the IaaS resources for "clients_only_cluster" and install/configure Spectrum Scale binaries.   
 
 
 ### Multi Cluster Spectrum Scale  
@@ -83,15 +83,17 @@ fs_subnet_id
 
 
 
-## Deployment & Post Deployment
+## Deployment
 
-Deploy using standard Terraform commands
+Deploy using standard Terraform commands.  
 
+
+        cd oci-quickstart-ibm-spectrum-scale/clients_only_cluster
         terraform init && terraform plan
         terraform apply 
 
 
 ## Post Deploy Steps 
-Once the "clients_only_cluster" is deployed,  there are some post deploy steps to establish authentication between the two clusters and to get the filesystem mounted on client/compute nodes.  
+Once the "clients_only_cluster" is deployed,  there are some post deploy steps to establish authentication between the "clients_ clusters and to get the filesystem mounted on client/compute nodes.  The detailed steps are documented [here](https://www.ibm.com/support/knowledgecenter/STXKQY_5.0.5/com.ibm.spectrum.scale.v5r05.doc/bl1adv_admrmsec.htm). 
 
-TODO - Steps
+
