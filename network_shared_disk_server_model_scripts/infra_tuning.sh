@@ -61,7 +61,7 @@ if [ $? -eq 0 ] ; then
 fi
 
 
-# make sure client nodes they have enough memory.
+# check client have enough memory.
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ; echo $coreIdCount
@@ -122,7 +122,7 @@ echo '#
 #
 ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*[^0-9]", PROGRAM="/usr/bin/lsblk -rno FSTYPE,MOUNTPOINT,NAME /dev/%k", RESULT!="*SWAP*", ATTR{queue/scheduler}="deadline", ATTR{queue/nr_requests}="256", ATTR{device/queue_depth}="31", ATTR{queue/max_sectors_kb}="8192", ATTR{queue/read_ahead_kb}="0", ATTR{queue/rq_affinity}="2"
 ' > /etc/udev/rules.d/99-ibm-spectrum-scale.rules
-# Run this to load the rules
+# reload the rules
 udevadm control --reload-rules && udevadm trigger
 
 fi

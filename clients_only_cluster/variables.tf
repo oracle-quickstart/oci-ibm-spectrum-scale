@@ -60,22 +60,24 @@ variable "spectrum_scale" {
   type = map(string)
     default = {
       "version"      = "5.0.4.1"
-      "download_url" = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/IIPwjm0Xktrw4ZN-y1pkwHhzEdGRNwi8lSWj_iYiSWl58GPQrm9pNOu5z3wcpI7F/n/hpc_limited_availability/b/spectrum_scale/o/Spectrum%20Scale%205.0.4.1%20Developer%20Edition.zip"
+      "download_url" = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/xxxxCHANGEMExxxxx/n/hpc_limited_availability/b/spectrum_scale/o/Spectrum%20Scale%205.0.4.1%20Developer%20Edition.zip"
       high_availability = false
     }
 }
 
 
-# if high_availability is set to false, then first AD value from the below list will be used to create cluster.
+# if high_availability is set to false, then first AD value from the below list will be used to create cluster.  1 for AD-1, 2 for AD-2 and 3 for AD-3. 
 # if high_availability is set to true, then both values from the below list will be used to create cluster.
+# To use AD-1
 variable "availability_domain" { default = [1,2] }
 #variable "availability_domain" { default = [2,3] }
 #variable "availability_domain" { default = [3,1] }
 
 
 
-
-
+##################################################
+## Variables which should not be changed by user
+##################################################
 
 locals {
   site1 = (var.spectrum_scale["high_availability"] ? var.availability_domain[0] - 1 : var.availability_domain[0] - 1)
@@ -89,20 +91,10 @@ locals {
 
 }
 
-
-
-
-##################################################
-## Variables which should not be changed by user
-##################################################
-
 # Please do not change.  The first nsd node is used for cluster deployment
 variable "installer_node" { default = "1" }
 
 variable "scripts_directory" { default = "../clients_only_cluster_scripts" }
-
-
-###############
 
 variable "tenancy_ocid" {}
 variable "user_ocid" {}
@@ -166,17 +158,3 @@ variable "imagesCentos76" {
   }
 }
 
-# Oracle-Linux-7.6-2019.05.28-0
-# https://docs.cloud.oracle.com/iaas/images/image/6180a2cb-be6c-4c78-a69f-38f2714e6b3d/
-variable "imagesOL" {
-  type = map(string)
-  default = {
-    /*
-      See https://docs.us-phoenix-1.oraclecloud.com/images/ or https://docs.cloud.oracle.com/iaas/images/
-      Oracle-provided image "CentOS-7-2018.11.16-0"
-      https://docs.cloud.oracle.com/iaas/images/image/66a17669-8a67-4b43-924a-78d8ae49f609/
-    */
-    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaaj6pcmnh6y3hdi3ibyxhhflvp3mj2qad4nspojrnxc6pzgn2w3k5q"
-    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaa2wadtmv6j6zboncfobau7fracahvweue6dqipmcd5yj6s54f3wpq"
-  }
-}

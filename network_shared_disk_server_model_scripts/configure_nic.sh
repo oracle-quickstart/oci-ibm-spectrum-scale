@@ -1,7 +1,7 @@
 MDATA_VNIC_URL="http://169.254.169.254/opc/v1/vnics/"
 
 function configure_vnics {
-  # Configure second vNIC
+  # Configure 2nd vNIC
   scriptsource="https://raw.githubusercontent.com/oracle/terraform-examples/master/examples/oci/connect_vcns_using_multiple_vnics/scripts/secondary_vnic_all_configure.sh"
   vnicscript=/root/secondary_vnic_all_configure.sh
   curl -s $scriptsource > $vnicscript

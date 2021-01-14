@@ -1,10 +1,8 @@
 
 
-# download SS
 cd /tmp/
 curl -O $downloadUrl -s
 
-# if download fails due to intermittent error
 while [ $? -ne 0 ]; do
   rm -rf /tmp/Spectrum_Scale_Data_Management-*
   rm -rf "/tmp/Spectrum Scale*"
@@ -85,6 +83,7 @@ else
   exit 1;
 fi
 
+
 yum clean all
 yum makecache
 rerun=false
@@ -93,13 +92,35 @@ if [ $? -ne 0 ]; then
   rerun=true
 fi
 
+function downloadKernelRPMs {
+  packagePrefix=$1
+  kernelVersion=`uname -a  | gawk -F" " '{ print $3 }' ` ; echo $kernelVersion
+  sudo yum install -y -q  redhat-lsb-core
+  lsb_release -a
+  osVersion=`lsb_release -a | grep "Release:" | gawk -F" " '{ print $2 }' | gawk -F"." '{ print $1"."$2 }' ` ; echo $osVersion
+  fullOSReleaseVersion=`lsb_release -a | grep "Release:" | gawk -F" " '{ print $2 }'` ; echo $fullOSReleaseVersion
+
+  declare -a rpmServers=("http://linuxsoft.cern.ch/centos-vault/${fullOSReleaseVersion}/updates/x86_64/Packages"
+                "http://repo1.xorcom.com/repos/centos/7/x86_64/Updates_OS_X86_64/Packages/k"
+                "http://ftp.scientificlinux.org/linux/scientific/${osVersion}/x86_64/updates/security"
+                "http://archive.kernel.org/centos-vault/${fullOSReleaseVersion}/updates/x86_64/Packages"
+                )
+
+  for rpmDownloadURLPrefix in "${rpmServers[@]}"
+  do
+    echo "$rpmDownloadURLPrefix"
+    curl --head --fail --silent ${rpmDownloadURLPrefix}/${packagePrefix}-${kernelVersion}.rpm
+    if [ $? -eq 0 ]; then
+      curl -O ${rpmDownloadURLPrefix}/${packagePrefix}-${kernelVersion}.rpm
+      if [ $? -eq 0 ]; then
+        break;
+      fi
+    fi
+  done
+}
 kernelVersion=`uname -a  | gawk -F" " '{ print $3 }' ` ; echo $kernelVersion
-yum install -y redhat-lsb-core
-lsb_release -a
-osVersion=`lsb_release -a | grep "Release:" | gawk -F" " '{ print $2 }' | gawk -F"." '{ print $1"."$2 }' ` ; echo $osVersion
-rpmDownloadURLPrefix="http://ftp.scientificlinux.org/linux/scientific/${osVersion}/x86_64/updates/security"
-curl -O ${rpmDownloadURLPrefix}/kernel-devel-${kernelVersion}.rpm
-curl -O ${rpmDownloadURLPrefix}/kernel-headers-${kernelVersion}.rpm
+downloadKernelRPMs "kernel-devel"
+downloadKernelRPMs "kernel-headers"
 # --oldpackage
 rpm -Uvh kernel-devel-${kernelVersion}.rpm
 rpm -Uvh kernel-headers-${kernelVersion}.rpm
@@ -110,7 +131,6 @@ fi
 
 yum -y install psmisc numad numactl iperf3 dstat iproute automake autoconf git
 
-# ces
 echo "$thisHost" | grep -q $cesNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   # AD

@@ -2,7 +2,7 @@
 echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
 
-  # Wait for multi-attach of the Block volumes to complete.  
+  # multi-attach of Volumes to complete.
   while [ ! -f /tmp/multi-attach.complete ]
   do
     sleep 60s
@@ -44,7 +44,6 @@ fi
 
 echo "$thisHost" | grep -q $nsdNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
-  # To enable custom disk consistent devicepath discovery for nsds.
   mkdir -p /var/mmfs/etc/
   if [ -f /tmp/nsddevices ]; then
     cp /tmp/nsddevices /var/mmfs/etc/
