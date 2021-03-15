@@ -46,22 +46,26 @@ if [ $? -eq 0 ] ; then
   $command
 
   sleep 30s
-
-  startIndex=$((nsdNodeCount+1))
-  endIndex=$((nsdNodeCount+clientNodeCount))
-  command="mmchlicense client --accept -N  "
-  for node in `seq $startIndex $endIndex`;
-  do
-    echo $node
-    if [ $node -eq $endIndex ]; then
-      # no comma
-      command="${command}${node}"
-    else
-      command="${command}${node},"
-    fi
-  done
-  echo $command
-  $command
+  
+  if [ $clientNodeCount -gt 0 ]; then
+    startIndex=$((nsdNodeCount+1))
+    endIndex=$((nsdNodeCount+clientNodeCount))
+    command="mmchlicense client --accept -N  "
+    for node in `seq $startIndex $endIndex`;
+    do
+      echo $node
+      if [ $node -eq $endIndex ]; then
+        # no comma
+        command="${command}${node}"
+      else
+        command="${command}${node},"
+      fi
+    done
+    echo $command
+    $command
+  else
+    echo "No client nodes to configure"
+  fi
 
   sleep 30s
 
@@ -134,9 +138,10 @@ if [ $? -eq 0 ] ; then
   mmmount fs1 -a
   sleep 15s
 
-  mmstartup -N clientNodes
-  while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
-
+  if [ $clientNodeCount -gt 0 ]; then
+    mmstartup -N clientNodes
+    while [ `mmgetstate -a | grep "active" | wc -l` -ne $((nsdNodeCount + clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
+  fi
 
   # Consolidate, since both failure groups needs to be in the same file, for the command the work.
   rm /tmp/nsd.stanza.sv${nsdNodesPerPool}.consolidated

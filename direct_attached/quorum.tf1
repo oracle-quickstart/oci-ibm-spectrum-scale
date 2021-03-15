@@ -1,0 +1,59 @@
+
+resource "oci_core_volume" "SharedDataBlockVolume" {
+  count               = "${var.SharedData["Count"]}"
+
+  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[var.AD - 1],"name")}"
+  compartment_id      = "${var.compartment_ocid}"
+  display_name        = "SharedData${count.index+1}"
+  size_in_gbs         = "${var.SharedData["Size"]}"
+}
+
+resource "oci_core_instance" "ComputeNode" {
+  count               = "${var.ComputeNodeCount}"
+  availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[var.AD - 1],"name")}"
+  compartment_id      = "${var.compartment_ocid}"
+  display_name        = "${var.ComputeNodeHostnamePrefix}${format("%01d", count.index+1)}"
+  hostname_label      = "${var.ComputeNodeHostnamePrefix}${format("%01d", count.index+1)}"
+  shape               = "${var.ComputeNodeShape}"
+  subnet_id           = "${oci_core_subnet.private.*.id[var.AD - 1]}"
+
+  source_details {
+    source_type = "image"
+    source_id = "${var.InstanceImageOCID[var.region]}"
+  }
+
+  launch_options {
+    network_type = (length(regexall("VM.Standard.E", var.ComputeNodeShape)) > 0 ? "PARAVIRTUALIZED" : "VFIO")
+  }
+
+  metadata = {
+    ssh_authorized_keys = "${var.ssh_public_key}"
+    #user_data = "${base64encode(data.template_file.boot_script.rendered)}"
+    user_data = "${base64encode(join("\n", list(
+        "#!/usr/bin/env bash",
+        "set -x",
+        "version=\"${var.ibm_ss_version}\"",
+        "downloadUrl=\"${var.software_download_url}\"",
+        "sshPrivateKey=\"${var.ssh_private_key}\"",
+        "sshPublicKey=\"${var.ssh_public_key}\"",
+        "clientNodeCount=\"${var.ComputeNodeCount}\"",
+        "clientNodeHostnamePrefix=\"${var.ComputeNodeHostnamePrefix}\"",
+        "blockSize=\"${var.BlockSize}\"",
+        "dataReplica=\"${var.DataReplica}\"",
+        "metadataReplica=\"${var.metadataReplica}\"",
+        "gpfsMountPoint=\"${var.GpfsMountPoint}\"",
+        "fileSystemName=\"${var.fileSystemName}\"",
+        "sharedDataDiskCount=\"${var.SharedData["Count"]}\"",
+        "installerNode=\"${var.ComputeNodeHostnamePrefix}${var.installer_node}\"",
+        "privateSubnetsFQDN=\"${oci_core_subnet.private.*.dns_label[var.AD - 1]}.${oci_core_virtual_network.ibmss_vcnv3.dns_label}.oraclevcn.com\"",
+        file("${var.scripts_directory}/boot.sh")
+      )))}"
+    }
+
+
+  timeouts {
+    create = "60m"
+  }
+
+}
+
