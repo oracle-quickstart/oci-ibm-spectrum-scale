@@ -35,7 +35,6 @@ EOF
     privateIp=`curl -s http://169.254.169.254/opc/v1/vnics/ | jq '.[1].privateIp ' | sed 's/"//g' ` ; echo $privateIp
     interface=`ip addr | grep -B2 $privateIp | grep "BROADCAST" | gawk -F ":" ' { print $2 } ' | sed -e 's/^[ \t]*//'` ; echo $interface
     if [ -z $interface ]; then
-      # repeat loop
       RC=1
     else
       RC=0
@@ -48,7 +47,7 @@ EOF
 function configure_2nd_VNIC {
 
       configure_vnics
-      # check if 1 or 2 VNIC.
+      #  if 1 or 2 VNIC.
       vnic_count=`curl -s $MDATA_VNIC_URL | jq '. | length'`
 
       if [ $vnic_count -gt 1 ] ; then
@@ -65,7 +64,7 @@ function configure_2nd_VNIC {
           fi
         fi
 
-        # ensure the below is not empty
+        # ensure its not empty
         test=`nslookup $privateIp | grep -q "name = "`
         while [ $? -ne 0 ];
         do
@@ -122,7 +121,7 @@ else
   fi
 fi
 
-#   configure 2nd NIC
+#  2nd NIC
 echo `hostname` | grep -q "$clientNodeHostnamePrefix\|$mgmtGuiNodeHostnamePrefix"
 if [ $? -eq 0 ] ; then
   set_env_variables
@@ -139,7 +138,7 @@ else
   fi
 fi
 
-# required to include in this file
+# required 
 echo "thisFQDN=\"$thisFQDN\"" >> /tmp/gpfs_env_variables.sh
 echo "thisHost=\"$thisHost\"" >> /tmp/gpfs_env_variables.sh
 

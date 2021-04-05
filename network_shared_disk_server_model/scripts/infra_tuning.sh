@@ -3,14 +3,10 @@ mv /etc/yum.repos.d/epel-testing.repo  /etc/yum.repos.d/epel-testing.repo.disabl
 sed -i "s/SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
 setenforce 0
 
-### OS Performance tuning
 cd /usr/lib/tuned/
 cp -r throughput-performance/ gpfs-oci-performance
 
 echo "
-#
-# tuned configuration
-#
 
 [main]
 summary=gpfs perf tuning for common gpfs workloads
@@ -61,7 +57,7 @@ if [ $? -eq 0 ] ; then
 fi
 
 
-# check client have enough memory.
+# check for enough memory.
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ; echo $coreIdCount
@@ -117,9 +113,7 @@ if [ $? -eq 0 ] ; then
 
 echo '#
 # Identify eligible SCSI disks by the absence of a SWAP partition.
-# The only attribute that should possibly be changed is max_sectors_kb,
-# up to a value of 8192, depending on what the SCSI driver and disks support.
-#
+
 ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*[^0-9]", PROGRAM="/usr/bin/lsblk -rno FSTYPE,MOUNTPOINT,NAME /dev/%k", RESULT!="*SWAP*", ATTR{queue/scheduler}="deadline", ATTR{queue/nr_requests}="256", ATTR{device/queue_depth}="31", ATTR{queue/max_sectors_kb}="8192", ATTR{queue/read_ahead_kb}="0", ATTR{queue/rq_affinity}="2"
 ' > /etc/udev/rules.d/99-ibm-spectrum-scale.rules
 # reload the rules

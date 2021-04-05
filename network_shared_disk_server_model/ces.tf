@@ -1,13 +1,17 @@
 resource "oci_core_instance" "ces_node" {
-  count               = var.ces_node["node_count"]
-  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.ces_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")
+  count               = var.ces_node_count
+  availability_domain = local.ad
 
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
-  display_name        = "${var.ces_node["hostname_prefix"]}ptcl-${format("%01d", count.index+1)}"
-  hostname_label      = "${var.ces_node["hostname_prefix"]}ptcl-${format("%01d", count.index+1)}"
-  shape               = (local.dual_nics_ces_node ? var.ces_node["shape"] : var.ces_node["shape"])
-  subnet_id           = oci_core_subnet.protocol_subnet.*.id[0]
+  display_name        = "${var.ces_node_hostname_prefix}ptcl-${format("%01d", count.index+1)}"
+  shape               = (local.dual_nics_ces_node ? var.ces_node_shape : var.ces_node_shape)
+
+  create_vnic_details {
+    subnet_id           = oci_core_subnet.protocol_subnet.*.id[0]
+    hostname_label      = "${var.ces_node_hostname_prefix}ptcl-${format("%01d", count.index+1)}"
+    assign_public_ip    = "false"
+  }
 
   source_details {
     source_type = "image"
@@ -15,39 +19,33 @@ resource "oci_core_instance" "ces_node" {
   }
 
   metadata = {
-    ssh_authorized_keys = var.ssh_public_key
-    user_data = "${base64encode(join("\n", list(
+    ssh_authorized_keys = tls_private_key.ssh.public_key_openssh
+#    ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
+    user_data = base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
-        "version=\"${var.spectrum_scale["version"]}\"",
-        "downloadUrl=\"${var.spectrum_scale["download_url"]}\"",
-        "sshPrivateKey=\"${var.ssh_private_key}\"",
-        "sshPublicKey=\"${var.ssh_public_key}\"",
+        "version=\"${var.spectrum_scale_version}\"",
+        "downloadUrl=\"${var.spectrum_scale_download_url}\"",
         "totalNsdNodePools=\"${var.total_nsd_node_pools}\"",
         "nsdNodesPerPool=\"${var.nsd_nodes_per_pool}\"",
         "nsdNodeCount=\"${(var.total_nsd_node_pools * var.nsd_nodes_per_pool)}\"",
-        "nsdNodeHostnamePrefix=\"${var.nsd_node["hostname_prefix"]}\"",
-        "clientNodeCount=\"${var.client_node["node_count"]}\"",
-        "clientNodeHostnamePrefix=\"${var.client_node["hostname_prefix"]}\"",
-        "blockSize=\"${var.spectrum_scale["block_size"]}\"",
-        "dataReplica=\"${var.spectrum_scale["data_replica"]}\"",
-        "metadataReplica=\"${var.spectrum_scale["metadata_replica"]}\"",
-        "gpfsMountPoint=\"${var.spectrum_scale["gpfs_mount_point"]}\"",
-        "highAvailability=\"${var.spectrum_scale["high_availability"]}\"",
+        "nsdNodeHostnamePrefix=\"${var.nsd_node_hostname_prefix}\"",
+        "clientNodeCount=\"${var.client_node_count}\"",
+        "clientNodeHostnamePrefix=\"${var.client_node_hostname_prefix}\"",
+        "blockSize=\"${var.spectrum_scale_block_size}\"",
+        "dataReplica=\"${var.spectrum_scale_data_replica}\"",
+        "metadataReplica=\"${var.spectrum_scale_metadata_replica}\"",
+        "gpfsMountPoint=\"${var.spectrum_scale_gpfs_mount_point}\"",
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
-        "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
+        "installerNode=\"${var.nsd_node_hostname_prefix}${var.installer_node}\"",
         "vcnFQDN=\"${local.vcn_domain_name}\"",
         "privateSubnetsFQDN=\"${local.storage_subnet_domain_name}\"",
         "privateBSubnetsFQDN=\"${local.filesystem_subnet_domain_name}\"",
-        "companyName=\"${var.callhome["company_name"]}\"",
-        "companyID=\"${var.callhome["company_id"]}\"",
-        "countryCode=\"${var.callhome["country_code"]}\"",
-        "emailaddress=\"${var.callhome["emailaddress"]}\"",
-        "cesNodeCount=\"${var.ces_node["node_count"]}\"",
-        "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
-        "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
-        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
+        "cesNodeCount=\"${var.ces_node_count}\"",
+        "cesNodeHostnamePrefix=\"${var.ces_node_hostname_prefix}\"",
+        "mgmtGuiNodeCount=\"${var.mgmt_gui_node_count}\"",
+        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node_hostname_prefix}\"",
         "privateProtocolSubnetFQDN=\"${local.protocol_subnet_domain_name}\"",
         file("${var.scripts_directory}/firewall.sh"),
         file("${var.scripts_directory}/set_env_variables.sh"),
@@ -57,8 +55,7 @@ resource "oci_core_instance" "ces_node" {
         file("${var.scripts_directory}/infra_tuning.sh"),
         file("${var.scripts_directory}/passwordless_ssh.sh"),
         file("${var.scripts_directory}/install_spectrum_scale.sh")
-#        file("${var.scripts_directory}/protocol_install.sh")
-      )))}"
+      )))
     }
 
   timeouts {
@@ -68,11 +65,55 @@ resource "oci_core_instance" "ces_node" {
 }
 
 
+resource "null_resource" "deploy_ssh_keys_on_ces_nodes" {
+  depends_on = [
+    oci_core_instance.ces_node,
+  ]
+  count = var.ces_node_count
+  triggers = {
+    instance_ids = "oci_core_instance.ces_node.*.id"
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.private_key_pem
+    destination = "/home/opc/.ssh/id_rsa"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.ces_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = tls_private_key.ssh.private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.public_key_openssh
+    destination = "/home/opc/.ssh/id_rsa.pub"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.ces_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = tls_private_key.ssh.private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+}
+
+
 /* Remote exec to deploy gpfs software/rpms on ces nodes */
 resource "null_resource" "deploy_gpfs_on_ces_nodes" {
   depends_on = [
     oci_core_instance.ces_node  ]
-  count = var.ces_node["node_count"]
+  count = var.ces_node_count
   triggers = {
     instance_ids = "oci_core_instance.ces_node.*.id"
   }
@@ -85,11 +126,11 @@ resource "null_resource" "deploy_gpfs_on_ces_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.ces_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
   }
 
@@ -99,11 +140,11 @@ resource "null_resource" "deploy_gpfs_on_ces_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.ces_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
     inline = [
       "set -x",
@@ -123,7 +164,7 @@ resource "null_resource" "configure_ces_service" {
     oci_core_instance.ces_node,
     null_resource.create_gpfs_cluster
   ]
-  count = var.ces_node["node_count"] > 0 ? 1 : 0
+  count = var.ces_node_count > 0 ? 1 : 0
   # 1
   triggers = {
     instance_ids = element(concat(oci_core_instance.ces_node.*.id, [""]), 0)
@@ -135,11 +176,11 @@ resource "null_resource" "configure_ces_service" {
       timeout             = "30m"
       host                = element(oci_core_instance.ces_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
     inline = [
       "set -x",

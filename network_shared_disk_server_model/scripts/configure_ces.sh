@@ -116,14 +116,14 @@ mmsmb export list
 # [root@ss-ces-1 ~]#
 for node in `cat /tmp/cesnodehosts` ; do
   mmdsh -N $node "groupadd -g 1001 demo"
-  mmdsh -N $node "useradd -u 1001 -g demo demo01"
-  mmdsh -N $node "echo -e \"demo01\ndemo01\" | passwd demo01"
+  mmdsh -N $node "useradd -u 1001 -g demo demo0143"
+  mmdsh -N $node "echo -e \"demo0143\ndemo0143\" | passwd demo0143"
 done
 
 # Step 17. Create local computer object and user account (for SMB).
 # [root@ss-ces-1 ~]#
 /usr/lpp/mmfs/bin/net conf setparm global "netbios name" "SSCES"
-echo -e "demo01\ndemo01" | /usr/lpp/mmfs/bin/smbpasswd -a demo01
+echo -e "demo0143\ndemo0143" | /usr/lpp/mmfs/bin/smbpasswd -a demo0143
 # New SMB password:
 # Retype new SMB password:
 # Added user demo01.
@@ -133,9 +133,9 @@ echo -e "demo01\ndemo01" | /usr/lpp/mmfs/bin/smbpasswd -a demo01
 
 # Step 18. Create the export directory and assign appropriate ownership and permission.
 # as [root@ss-ces-1 ~]#
-mkdir -p /gpfs/fs1/home/demo01
-chown demo01:demo /gpfs/fs1/home/demo01
-chmod 700 /gpfs/fs1/home/demo01
+mkdir -p /gpfs/fs1/home/demo0143
+chown demo0143:demo /gpfs/fs1/home/demo0143
+chmod 700 /gpfs/fs1/home/demo0143
 
 
 # Step 19. Create the local user account on the NFS client – uid/gid has to be matched with the one from the protocol nodes.

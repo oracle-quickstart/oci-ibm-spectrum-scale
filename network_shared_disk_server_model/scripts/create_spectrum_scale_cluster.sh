@@ -72,13 +72,7 @@ if [ $? -eq 0 ] ; then
   rm /tmp/nsd.stanza.sv*
   for poolIndex in `seq 1 $totalNsdNodePools`;
   do
-    if [ $highAvailability = true ]; then
-      if [ $((poolIndex % 2)) -eq 0  ]; then
-        failureGroup=102
-      else
-        failureGroup=101
-      fi
-    fi
+    
 
     setFileName="/tmp/nsd.stanza.sv${nsdNodesPerPool}.set${poolIndex}"
     rm $setFileName
@@ -92,7 +86,7 @@ if [ $? -eq 0 ] ; then
         secondaryServer="${nsdNodeHostnamePrefix}$((((poolIndex-1)*nsdNodesPerPool)+2))"
       fi
 
-      if [ $highAvailability = false ] && ([ $metadataReplica -gt 1 ] || [ $dataReplica -gt 1 ]); then
+      if ([ $metadataReplica -gt 1 ] || [ $dataReplica -gt 1 ]); then
         echo $i
         if [ $((i % 2)) -eq 0 ]; then
           failureGroup=102

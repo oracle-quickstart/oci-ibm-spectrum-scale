@@ -6,8 +6,8 @@ resource "oci_core_vnic_attachment" "secondary_vnic_attachment" {
        subnet_id = local.fs_subnet_id
 
        assign_public_ip = "false"
-       display_name = "${var.nsd_node["hostname_prefix"]}${format("%01d", count.index+1)}"
-       hostname_label = "${var.nsd_node["hostname_prefix"]}${format("%01d", count.index+1)}"
+       display_name = "${var.nsd_node_hostname_prefix}${format("%01d", count.index+1)}"
+       hostname_label = "${var.nsd_node_hostname_prefix}${format("%01d", count.index+1)}"
        # false is default value
        skip_source_dest_check = "false"
    }
@@ -25,7 +25,7 @@ resource "oci_core_vnic_attachment" "secondary_vnic_attachment" {
 # dual_nics_ces_node
 resource "oci_core_vnic_attachment" "ces_node_secondary_vnic_attachment" {
    # Assume if CES node is needed, a seperate protocol subnet is required
-   count = (local.dual_nics_ces_node ? var.ces_node["node_count"] : var.ces_node["node_count"])
+   count = (local.dual_nics_ces_node ? var.ces_node_count : var.ces_node_count)
    #! Change logic to use the below, once whether to run CES node on protocol subnet or not is made
    #! count = (local.dual_vnic_ces ? var.ces_node["node_count"] : 0)
    create_vnic_details {
@@ -33,8 +33,8 @@ resource "oci_core_vnic_attachment" "ces_node_secondary_vnic_attachment" {
        subnet_id = local.fs_subnet_id
 
        assign_public_ip = "false"
-       display_name = "${var.ces_node["hostname_prefix"]}${format("%01d", count.index+1)}"
-       hostname_label = "${var.ces_node["hostname_prefix"]}${format("%01d", count.index+1)}"
+       display_name = "${var.ces_node_hostname_prefix}${format("%01d", count.index+1)}"
+       hostname_label = "${var.ces_node_hostname_prefix}${format("%01d", count.index+1)}"
        # false is default value
        skip_source_dest_check = "false"
    }
@@ -51,14 +51,14 @@ resource "oci_core_vnic_attachment" "ces_node_secondary_vnic_attachment" {
 # virtual IP addresses for the CES IP address pool
 resource "oci_core_vnic_attachment" "ces_node_virtual_ip_pool_secondary_vnic_attachment" {
    depends_on = [ oci_core_vnic_attachment.ces_node_secondary_vnic_attachment]
-   count = var.ces_node["node_count"]
+   count = var.ces_node_count
    create_vnic_details {
 #1# subnet_id = oci_core_subnet.privateprotocol.*.id[0]
        subnet_id = local.protocol_subnet_id
 
        assign_public_ip = "false"
-       display_name = "${var.ces_node["hostname_prefix"]}vip-pool-${format("%01d", count.index+1)}"
-       hostname_label = "${var.ces_node["hostname_prefix"]}vip-pool-${format("%01d", count.index+1)}"
+       display_name = "${var.ces_node_hostname_prefix}vip-pool-${format("%01d", count.index+1)}"
+       hostname_label = "${var.ces_node_hostname_prefix}vip-pool-${format("%01d", count.index+1)}"
        # false is default value
        skip_source_dest_check = "false"
    }

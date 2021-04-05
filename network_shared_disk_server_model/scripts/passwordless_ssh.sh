@@ -1,15 +1,32 @@
-echo "$sshPrivateKey" > /root/.ssh/id_rsa
-echo "$sshPublicKey" > /root/.ssh/id_rsa.pub
-chmod 600 ~/.ssh/id_rsa*
-chmod 640 ~/.ssh/authorized_keys
+##echo "$sshPrivateKey" > /root/.ssh/id_rsa
+##echo "$sshPublicKey" > /root/.ssh/id_rsa.pub
 
+while [ ! -f /home/opc/.ssh/id_rsa ]
+do
+  sleep 60s
+  echo "Waiting for file to be copied by TF ..."
+done
+
+\cp /home/opc/.ssh/id_rsa* /root/.ssh/
+if [ $? -ne 0 ]; then
+  exit 1;
+fi
+
+
+chmod 600 /home/opc/.ssh/id_rsa*
+chmod 640 /home/opc/.ssh/authorized_keys
 
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
 sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' /etc/ssh/sshd_config
 
 mv /root/.ssh/authorized_keys /root/.ssh/authorized_keys.backup
 cp /home/opc/.ssh/authorized_keys /root/.ssh/authorized_keys
-cd /root/.ssh/; cat id_rsa.pub >> authorized_keys ; cd -
+##cd /root/.ssh/; cat id_rsa.pub >> authorized_keys ; cd -
+cat /root/.ssh/id_rsa.pub >> authorized_keys ;
+
+sudo chmod 600 /root/.ssh/id_rsa*
+sudo chmod 640 /root/.ssh/authorized_keys
+
 
 find_cluster_nodes () {
   echo "Doing nslookup for $nodeType nodes"
@@ -83,6 +100,5 @@ for host_fqdn in `cat /tmp/allnodehosts` ; do
   host_ip=`nslookup $host_fqdn | grep "Address: " | gawk '{print $2}'`
   host=$host_ip
   do_ssh_keyscan
-  # update /etc/hosts file on all nodes with ip, fqdn and hostname of all nodes
   echo "$host_ip ${host_fqdn} ${host_fqdn%%.*}" >> /etc/hosts
 done ;

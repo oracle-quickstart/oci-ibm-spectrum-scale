@@ -20,3 +20,9 @@ data "oci_core_subnet" "fs_subnet" {
 data "oci_core_subnet" "protocol_subnet" {
   subnet_id = var.use_existing_vcn ? var.protocol_subnet_id : local.protocol_subnet_id
 }
+
+
+resource "tls_private_key" "ssh" {
+  algorithm = "RSA"
+  rsa_bits  = "4096"
+}

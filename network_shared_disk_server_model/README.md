@@ -6,10 +6,11 @@ This Terrrafom template deploys an IBM Spectrum Scale distributed parallel file 
 The template creates all the required infrastucture (virtual network, nat gateway, securitylist, compute, Block volume etc.) as well as installs and configures IBM Spectrum Scale Data Management software.  The solution can be deployed across 2 Availability domains (AD) (set DataReplica parameter to 2) or in a single AD. 
 
 ### Single AD 
-![](../images/network_shared_disk_server_model/01a-single-AD-architecture.png)
+![](../images/network_shared_disk_server_model/01b-single-AD-architecture.png)
 
 ## Multiple AD
-![](../images/network_shared_disk_server_model/01a-two-AD-architecture.png)
+We can deploy a stretched cluster across multiple ADs or seperate cluster in each AD and use AFM or other rsync tools to move data.  
+
 
 
 
@@ -28,13 +29,16 @@ Please download the Free developer edition of Spectrum Scale software binary fro
 If you already have license for Spectrum Scale,  then you can download it from [here](https://www.ibm.com/support/fixcentral/swg/selectFixes?parent=Software%20defined%20storage&product=ibm/StorageSoftware/IBM+Spectrum+Scale&release=All&platform=Linux+64-bit,x86_64&function=all)
 
 
+## Resource Manager Deployment
+This Quick Start uses [OCI Resource Manager](https://docs.cloud.oracle.com/iaas/Content/ResourceManager/Concepts/resourcemanager.htm) to make deployment easy, sign up for an [OCI account](https://cloud.oracle.com/en_US/tryit) if you don't have one, and just click the button below:
 
-### 2. OCI Terraform configuration
+[![Deploy to Oracle Cloud](https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg)](https://console.us-ashburn-1.oraclecloud.com/resourcemanager/stacks/create?region=home&zipUrl=https://github.com/oracle-quickstart/oci-ibm-spectrum-scale/archive/master.zip) 
+
+Note, if you use this template to create another repo you'll need to change the link for the button to point at your repo.
+
+
+## Local Terraform Deployment
 First off you'll need to do some pre deploy setup on your local machine to use Terraform with Oracle Cloud Infrastructure.  That's all detailed [here](https://github.com/oracle/oci-quickstart-prerequisites).
-
-### 3. OCI Command Line Interface (CLI) Tool configuration
-The template also uses OCI CLI tool.  Follow the link below to download, install and configure it on your local machine. 
-[OCI CLI Quickstart](https://docs.cloud.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm)
 
 
 ## Clone the Terraform template

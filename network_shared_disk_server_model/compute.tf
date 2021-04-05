@@ -4,15 +4,22 @@ locals {
 
 
 resource "oci_core_instance" "nsd_node" {
+  depends_on = [
+    oci_core_instance.bastion,
+  ]
   count               = local.nsd_node_count
-  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (local.nsd_node_count / 2)) ? local.site1 : local.site2)],"name")
+  availability_domain = local.ad
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
-  display_name        = (local.dual_vnic ? "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}" : "${var.nsd_node["hostname_prefix"]}${format("%01d", count.index+1)}")
-  hostname_label      = (local.dual_vnic ? "${var.nsd_node["hostname_prefix"]}nic0-${format("%01d", count.index+1)}" : "${var.nsd_node["hostname_prefix"]}${format("%01d", count.index+1)}")
-  shape               = var.nsd_node["shape"]
-  subnet_id           = local.storage_subnet_id
-#1# oci_core_subnet.private.*.id[0]
+  display_name        = (local.dual_vnic ? "${var.nsd_node_hostname_prefix}nic0-${format("%01d", count.index+1)}" : "${var.nsd_node_hostname_prefix}${format("%01d", count.index+1)}")
+  shape               = var.nsd_node_shape
+
+  create_vnic_details {
+    subnet_id           = local.storage_subnet_id
+    hostname_label      = (local.dual_vnic ? "${var.nsd_node_hostname_prefix}nic0-${format("%01d", count.index+1)}" : "${var.nsd_node_hostname_prefix}${format("%01d", count.index+1)}")
+    assign_public_ip    = "false"
+  }
+
 
   source_details {
     source_type = "image"
@@ -20,39 +27,33 @@ resource "oci_core_instance" "nsd_node" {
   }
 
   metadata = {
-    ssh_authorized_keys = var.ssh_public_key
-    user_data = "${base64encode(join("\n", list(
+    ssh_authorized_keys = tls_private_key.ssh.public_key_openssh
+#    ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
+    user_data = base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
-        "version=\"${var.spectrum_scale["version"]}\"",
-        "downloadUrl=\"${var.spectrum_scale["download_url"]}\"",
-        "sshPrivateKey=\"${var.ssh_private_key}\"",
-        "sshPublicKey=\"${var.ssh_public_key}\"",
+        "version=\"${var.spectrum_scale_version}\"",
+        "downloadUrl=\"${var.spectrum_scale_download_url}\"",
         "totalNsdNodePools=\"${var.total_nsd_node_pools}\"",
         "nsdNodesPerPool=\"${var.nsd_nodes_per_pool}\"",
         "nsdNodeCount=\"${(var.total_nsd_node_pools * var.nsd_nodes_per_pool)}\"",
-        "nsdNodeHostnamePrefix=\"${var.nsd_node["hostname_prefix"]}\"",
-        "clientNodeCount=\"${var.client_node["node_count"]}\"",
-        "clientNodeHostnamePrefix=\"${var.client_node["hostname_prefix"]}\"",
-        "blockSize=\"${var.spectrum_scale["block_size"]}\"",
-        "dataReplica=\"${var.spectrum_scale["data_replica"]}\"",
-        "metadataReplica=\"${var.spectrum_scale["metadata_replica"]}\"",
-        "gpfsMountPoint=\"${var.spectrum_scale["gpfs_mount_point"]}\"",
-        "highAvailability=\"${var.spectrum_scale["high_availability"]}\"",
+        "nsdNodeHostnamePrefix=\"${var.nsd_node_hostname_prefix}\"",
+        "clientNodeCount=\"${var.client_node_count}\"",
+        "clientNodeHostnamePrefix=\"${var.client_node_hostname_prefix}\"",
+        "blockSize=\"${var.spectrum_scale_block_size}\"",
+        "dataReplica=\"${var.spectrum_scale_data_replica}\"",
+        "metadataReplica=\"${var.spectrum_scale_metadata_replica}\"",
+        "gpfsMountPoint=\"${var.spectrum_scale_gpfs_mount_point}\"",
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
-        "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
+        "installerNode=\"${var.nsd_node_hostname_prefix}${var.installer_node}\"",
         "vcnFQDN=\"${local.vcn_domain_name}\"",
         "privateSubnetsFQDN=\"${local.storage_subnet_domain_name}\"",
         "privateBSubnetsFQDN=\"${local.filesystem_subnet_domain_name}\"",
-        "companyName=\"${var.callhome["company_name"]}\"",
-        "companyID=\"${var.callhome["company_id"]}\"",
-        "countryCode=\"${var.callhome["country_code"]}\"",
-        "emailaddress=\"${var.callhome["emailaddress"]}\"",
-        "cesNodeCount=\"${var.ces_node["node_count"]}\"",
-        "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
-        "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
-        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
+        "cesNodeCount=\"${var.ces_node_count}\"",
+        "cesNodeHostnamePrefix=\"${var.ces_node_hostname_prefix}\"",
+        "mgmtGuiNodeCount=\"${var.mgmt_gui_node_count}\"",
+        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node_hostname_prefix}\"",
         "privateProtocolSubnetFQDN=\"${local.protocol_subnet_domain_name}\"",
         file("${var.scripts_directory}/firewall.sh"),
         file("${var.scripts_directory}/set_env_variables.sh"),
@@ -62,30 +63,77 @@ resource "oci_core_instance" "nsd_node" {
         file("${var.scripts_directory}/infra_tuning.sh"),
         file("${var.scripts_directory}/passwordless_ssh.sh"),
         file("${var.scripts_directory}/install_spectrum_scale.sh")
-#       file("${var.scripts_directory}/install.sh")
-      )))}"
+      )))
     }
 
   timeouts {
     create = "120m"
+  }
+
+
+}
+
+
+resource "null_resource" "deploy_ssh_keys_on_nsd_server_nodes" {
+  depends_on = [
+    oci_core_instance.nsd_node,
+  ]
+  count = var.total_nsd_node_pools * var.nsd_nodes_per_pool
+  triggers = {
+    instance_ids = "oci_core_instance.nsd_node.*.id"
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.private_key_pem
+    destination = "/home/opc/.ssh/id_rsa"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = tls_private_key.ssh.private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.public_key_openssh
+    destination = "/home/opc/.ssh/id_rsa.pub"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = tls_private_key.ssh.private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = tls_private_key.ssh.private_key_pem
+    }
   }
 
 }
 
 
 resource "oci_core_instance" "client_node" {
-  count               = var.client_node["node_count"]
-  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.client_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")
+  count               = var.client_node_count
+  availability_domain = local.ad
+  #lookup(data.oci_identity_availability_domains.ADs.availability_domains[( (count.index <  (var.client_node["node_count"] / 2)) ? local.site1 : local.site2)],"name")
 
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
-  display_name        = "${var.client_node["hostname_prefix"]}${format("%01d", count.index+1)}"
-  hostname_label      = "${var.client_node["hostname_prefix"]}${format("%01d", count.index+1)}"
-  shape               = var.client_node["shape"]
-####  subnet_id           = local.dual_nics ? element(concat(oci_core_subnet.privateb.*.id, [""]), 0) : element(concat(oci_core_subnet.private.*.id, [""]), 0)
-   #
-#1# subnet_id           = element(oci_core_subnet.privateb.*.id, 0)
-  subnet_id           = local.client_subnet_id
+  display_name        = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
+  shape               = var.client_node_shape
+
+  create_vnic_details {
+    subnet_id           = local.client_subnet_id
+    hostname_label      = "${var.client_node_hostname_prefix}${format("%01d", count.index+1)}"
+    assign_public_ip    = "false"
+  }
+
 
   source_details {
     source_type = "image"
@@ -93,39 +141,33 @@ resource "oci_core_instance" "client_node" {
   }
 
   metadata = {
-    ssh_authorized_keys = var.ssh_public_key
-    user_data = "${base64encode(join("\n", list(
+    ssh_authorized_keys = tls_private_key.ssh.public_key_openssh
+#    ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
+    user_data = base64encode(join("\n", list(
         "#!/usr/bin/env bash",
         "set -x",
-        "version=\"${var.spectrum_scale["version"]}\"",
-        "downloadUrl=\"${var.spectrum_scale["download_url"]}\"",
-        "sshPrivateKey=\"${var.ssh_private_key}\"",
-        "sshPublicKey=\"${var.ssh_public_key}\"",
+        "version=\"${var.spectrum_scale_version}\"",
+        "downloadUrl=\"${var.spectrum_scale_download_url}\"",
         "totalNsdNodePools=\"${var.total_nsd_node_pools}\"",
         "nsdNodesPerPool=\"${var.nsd_nodes_per_pool}\"",
         "nsdNodeCount=\"${(var.total_nsd_node_pools * var.nsd_nodes_per_pool)}\"",
-        "nsdNodeHostnamePrefix=\"${var.nsd_node["hostname_prefix"]}\"",
-        "clientNodeCount=\"${var.client_node["node_count"]}\"",
-        "clientNodeHostnamePrefix=\"${var.client_node["hostname_prefix"]}\"",
-        "blockSize=\"${var.spectrum_scale["block_size"]}\"",
-        "dataReplica=\"${var.spectrum_scale["data_replica"]}\"",
-        "metadataReplica=\"${var.spectrum_scale["metadata_replica"]}\"",
-        "gpfsMountPoint=\"${var.spectrum_scale["gpfs_mount_point"]}\"",
-        "highAvailability=\"${var.spectrum_scale["high_availability"]}\"",
+        "nsdNodeHostnamePrefix=\"${var.nsd_node_hostname_prefix}\"",
+        "clientNodeCount=\"${var.client_node_count}\"",
+        "clientNodeHostnamePrefix=\"${var.client_node_hostname_prefix}\"",
+        "blockSize=\"${var.spectrum_scale_block_size}\"",
+        "dataReplica=\"${var.spectrum_scale_data_replica}\"",
+        "metadataReplica=\"${var.spectrum_scale_metadata_replica}\"",
+        "gpfsMountPoint=\"${var.spectrum_scale_gpfs_mount_point}\"",
         "sharedDataDiskCount=\"${(var.total_nsd_node_pools * var.block_volumes_per_pool)}\"",
         "blockVolumesPerPool=\"${var.block_volumes_per_pool}\"",
-        "installerNode=\"${var.nsd_node["hostname_prefix"]}${var.installer_node}\"",
+        "installerNode=\"${var.nsd_node_hostname_prefix}${var.installer_node}\"",
         "vcnFQDN=\"${local.vcn_domain_name}\"",
         "privateSubnetsFQDN=\"${local.storage_subnet_domain_name}\"",
         "privateBSubnetsFQDN=\"${local.filesystem_subnet_domain_name}\"",
-        "companyName=\"${var.callhome["company_name"]}\"",
-        "companyID=\"${var.callhome["company_id"]}\"",
-        "countryCode=\"${var.callhome["country_code"]}\"",
-        "emailaddress=\"${var.callhome["emailaddress"]}\"",
-        "cesNodeCount=\"${var.ces_node["node_count"]}\"",
-        "cesNodeHostnamePrefix=\"${var.ces_node["hostname_prefix"]}\"",
-        "mgmtGuiNodeCount=\"${var.mgmt_gui_node["node_count"]}\"",
-        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node["hostname_prefix"]}\"",
+        "cesNodeCount=\"${var.ces_node_count}\"",
+        "cesNodeHostnamePrefix=\"${var.ces_node_hostname_prefix}\"",
+        "mgmtGuiNodeCount=\"${var.mgmt_gui_node_count}\"",
+        "mgmtGuiNodeHostnamePrefix=\"${var.mgmt_gui_node_hostname_prefix}\"",
         "privateProtocolSubnetFQDN=\"${local.protocol_subnet_domain_name}\"",
         file("${var.scripts_directory}/firewall.sh"),
         file("${var.scripts_directory}/set_env_variables.sh"),
@@ -135,8 +177,7 @@ resource "oci_core_instance" "client_node" {
         file("${var.scripts_directory}/infra_tuning.sh"),
         file("${var.scripts_directory}/passwordless_ssh.sh"),
         file("${var.scripts_directory}/install_spectrum_scale.sh")
-#       file("${var.scripts_directory}/install.sh")
-      )))}"
+      )))
     }
 
   timeouts {
@@ -146,31 +187,110 @@ resource "oci_core_instance" "client_node" {
 }
 
 
+resource "null_resource" "deploy_ssh_keys_on_nsd_client_nodes" {
+  depends_on = [
+    oci_core_instance.client_node,
+  ]
+  count = var.client_node_count
+  triggers = {
+    instance_ids = "oci_core_instance.client_node.*.id"
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.private_key_pem
+    destination = "/home/opc/.ssh/id_rsa"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.client_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = tls_private_key.ssh.private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.public_key_openssh
+    destination = "/home/opc/.ssh/id_rsa.pub"
+    connection {
+      agent               = false
+      timeout             = "30m"
+      host                = element(oci_core_instance.client_node.*.private_ip, count.index)
+      user                = var.ssh_user
+      private_key         = tls_private_key.ssh.private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_port        = "22"
+      bastion_user        = var.ssh_user
+      bastion_private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+}
+
 
 /* bastion instances */
 resource "oci_core_instance" "bastion" {
-  count = var.bastion["node_count"]
-  availability_domain = lookup(data.oci_identity_availability_domains.ADs.availability_domains[((count.index % 2 == 0) ? local.site1 : local.site2)],"name")
+  count = var.bastion_node_count
+  availability_domain = local.ad
   fault_domain        = "FAULT-DOMAIN-${(count.index%3)+1}"
   compartment_id      = var.compartment_ocid
-  display_name        = "${var.bastion["hostname_prefix"]}${format("%01d", count.index+1)}"
-  shape               = var.bastion["shape"]
-  hostname_label      = "${var.bastion["hostname_prefix"]}${format("%01d", count.index+1)}"
+  display_name        = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
+  shape               = var.bastion_shape
 
   create_vnic_details {
     subnet_id              = local.bastion_subnet_id
-    #1# subnet_id              = oci_core_subnet.public.*.id[0]
     skip_source_dest_check = true
+    hostname_label      = "${var.bastion_hostname_prefix}${format("%01d", count.index+1)}"
   }
 
   metadata = {
-    ssh_authorized_keys = var.ssh_public_key
+    ssh_authorized_keys = "${var.ssh_public_key}\n${tls_private_key.ssh.public_key_openssh}"
   }
 
   source_details {
     source_type = "image"
     source_id   = var.images[var.region]
   }
+  
+  provisioner "file" {
+    content     = tls_private_key.ssh.private_key_pem
+    destination = "/home/opc/.ssh/cluster.key"
+    connection {
+      host        = oci_core_instance.bastion[0].public_ip
+      type        = "ssh"
+      user        = "opc"
+      private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+  provisioner "file" {
+    content     = tls_private_key.ssh.private_key_pem
+    destination = "/home/opc/.ssh/id_rsa"
+    connection {
+      host        = oci_core_instance.bastion[0].public_ip
+      type        = "ssh"
+      user        = "opc"
+      private_key = tls_private_key.ssh.private_key_pem
+    }
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      host        = oci_core_instance.bastion[0].public_ip
+      type        = "ssh"
+      user        = "opc"
+      private_key = tls_private_key.ssh.private_key_pem
+    }
+    inline = [
+      "chmod 600 /home/opc/.ssh/id_rsa*",
+      "chmod 600 /home/opc/.ssh/cluster.key",
+
+    ]
+  }
+  
 }
 
 
@@ -181,7 +301,7 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
     oci_core_instance.client_node,
     null_resource.notify_server_nodes_oci_cli_multi_attach_complete,
   ]
-  count = var.client_node["node_count"]
+  count = var.client_node_count
   triggers = {
     instance_ids = "oci_core_instance.client_node.*.id"
   }
@@ -198,11 +318,11 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.client_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
   }
 
@@ -214,11 +334,11 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.client_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
   }
 
@@ -228,11 +348,11 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.client_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
     inline = [
       "set -x",
@@ -269,11 +389,11 @@ resource "null_resource" "deploy_gpfs_on_nsd_server_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
   }
 
@@ -283,11 +403,11 @@ resource "null_resource" "deploy_gpfs_on_nsd_server_nodes" {
       timeout             = "30m"
       host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
     inline = [
       "set -x",
@@ -321,11 +441,11 @@ resource "null_resource" "create_gpfs_cluster" {
       timeout             = "30m"
       host                = element(oci_core_instance.nsd_node.*.private_ip, count.index)
       user                = var.ssh_user
-      private_key         = var.ssh_private_key
+      private_key         = tls_private_key.ssh.private_key_pem
       bastion_host        = oci_core_instance.bastion[0].public_ip
       bastion_port        = "22"
       bastion_user        = var.ssh_user
-      bastion_private_key = var.ssh_private_key
+      bastion_private_key = tls_private_key.ssh.private_key_pem
     }
     inline = [
       "set -x",
