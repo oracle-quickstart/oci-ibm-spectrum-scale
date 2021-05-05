@@ -21,6 +21,8 @@ gpfsMountPoint=\"$gpfsMountPoint\"
 sharedDataDiskCount=\"$sharedDataDiskCount\"
 installerNode=\"$installerNode\"
 privateSubnetsFQDN=\"$privateSubnetsFQDN\"
+quorumNodeCount=\"$quorumNodeCount\"
+quorumNodeHostnamePrefix=\"$quorumNodeHostnamePrefix\"
 " > /tmp/gpfs_env_variables.sh
 
 
@@ -124,6 +126,11 @@ nodeHostnamePrefix=$clientNodeHostnamePrefix
 nodeCount=$clientNodeCount
 find_cluster_nodes
 
+nodeType="quorum"
+nodeHostnamePrefix=$quorumNodeHostnamePrefix
+nodeCount=$quorumNodeCount
+find_cluster_nodes
+
 
 
 if [ ! -f ~/.ssh/known_hosts ]; then
@@ -160,7 +167,7 @@ done ;
 
 
 
-
+# added logic to quorum node to create this file also.  
 # Wait for multi-attach of the Block volumes to complete.
 while [ ! -f /tmp/multi-attach.complete ]
 do
@@ -176,7 +183,7 @@ done
 
 # Compute nodes will only have Shared Data disk attached and Server nodes requires both metadata and data nodes attached (IBM requirement)
 echo "$thisHost" | grep -q $clientNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
+if [ $? -eq 100 ] ; then
   total_disk_count=$sharedDataDiskCount
 
 if [ $total_disk_count -gt 0 ] ;
@@ -207,10 +214,13 @@ fi
 touch /tmp/multi-attach-iscsi.complete
 fi
 
-#############
+touch /tmp/multi-attach-iscsi.complete
 
-echo "$thisHost" | grep -q $clientNodeHostnamePrefix
-if [ $? -eq 0 ] ; then
+
+#############
+# Needed on all nodes for direct attached model
+##echo "$thisHost" | grep -q $clientNodeHostnamePrefix
+##if [ $? -eq 0 ] ; then
   # To enable custom disk consistent devicepath discovery for nsds.
   mkdir -p /var/mmfs/etc/
   if [ -f /tmp/nsddevices ]; then
@@ -219,7 +229,7 @@ if [ $? -eq 0 ] ; then
   else
     exit 1
   fi
-fi
+##fi
 
 
 ############
