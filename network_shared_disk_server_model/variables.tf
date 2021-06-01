@@ -192,7 +192,7 @@ variable w_images {
 
 
 
-
+/*
 # CentOS7.8.2003  -  3.10.0-1127.10.1.el7.x86_64
 variable images {
     type = map(string)
@@ -202,9 +202,21 @@ variable images {
         // https://docs.oracle.com/en-us/iaas/images/image/38c87774-4b0a-440a-94b2-c321af1824e4/
 	  us-ashburn-1 = "ocid1.image.oc1.iad.aaaaaaaasa5eukeizlabgietiktm7idhpegni42d4d3xz7kvi6nyao5aztlq"
 	  us-phoenix-1 = "ocid1.image.oc1.phx.aaaaaaaajw5o3qf7cha2mgov5vxnwyctmcy4eqayy7o4w7s6cqeyppqd3smq"
+      eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaamrybyxlwxmfi3sqrcizm7npj3smngwku524yytyoxm7lqqkardaq"
     }
 }
+*/
 
+/* RHCK OL79 image - custom
+   Oracle-Linux-7.9-2021.04.09-0-K3.10.0-1160.21.1.el7.x86_64-noselinux
+*/
+variable images {
+    type = map(string)
+    default = {
+      eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaanwv3rcimife7nmc5fg76n5e5mrqi2npgbyd73vw3vzvgvfgbsaza"
+      us-ashburn-1 = "ocid1.image.oc1.iad.aaaaaaaayi5p6rjcnrarhfuthvpiun6fddvgpvpjqfejkc72drtwbfpftugq"
+    }
+}
 
 variable use_existing_vcn {
   default = "false"
