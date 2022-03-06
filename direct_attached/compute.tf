@@ -5,9 +5,14 @@ resource "oci_core_instance" "ComputeNode" {
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[var.AD - 1],"name")}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.ComputeNodeHostnamePrefix}${format("%01d", count.index+1)}"
-  hostname_label      = "${var.ComputeNodeHostnamePrefix}${format("%01d", count.index+1)}"
   shape               = "${var.ComputeNodeShape}"
-  subnet_id           = "${oci_core_subnet.private.*.id[var.AD - 1]}"
+
+  create_vnic_details {
+    subnet_id           = local.private_subnet_id
+    hostname_label      = "${var.ComputeNodeHostnamePrefix}${format("%01d", count.index+1)}"
+    assign_public_ip    = "false"
+  }
+
 
   source_details {
     source_type = "image"
@@ -37,7 +42,7 @@ resource "oci_core_instance" "ComputeNode" {
         "fileSystemName=\"${var.fileSystemName}\"",
         "sharedDataDiskCount=\"${var.SharedData["Count"]}\"",
         "installerNode=\"${var.ComputeNodeHostnamePrefix}${var.installer_node}\"",
-        "privateSubnetsFQDN=\"${oci_core_subnet.private.*.dns_label[var.AD - 1]}.${oci_core_virtual_network.ibmss_vcnv3.dns_label}.oraclevcn.com\"",
+        "privateSubnetsFQDN=\"${local.private_subnet_domain_name}\"",
         file("${var.scripts_directory}/boot.sh")
       )))}"
     }
@@ -59,10 +64,10 @@ resource "oci_core_instance" "bastion" {
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "bastion ${format("%01d", count.index+1)}"
   shape               = "${var.BastionNodeShape}"
-  hostname_label      = "bastion-${format("%01d", count.index+1)}"
 
   create_vnic_details {
-    subnet_id              = "${oci_core_subnet.public.*.id[var.AD - 1]}"
+    subnet_id           = local.bastion_subnet_id
+    hostname_label      = "bastion-${format("%01d", count.index+1)}"
     skip_source_dest_check = true
   }
 
@@ -87,7 +92,7 @@ resource "null_resource" "deploy_gpfs_on_client_nodes" {
   ]
   count = var.ComputeNodeCount
   triggers = {
-    instance_ids = "oci_core_instance.client_node.*.id"
+    instance_ids = "oci_core_instance.ComputeNode.*.id"
   }
 
   provisioner "file" {
@@ -154,7 +159,7 @@ resource "null_resource" "create_gpfs_cluster" {
   ]
   count = 1
   triggers = {
-    instance_ids = "oci_core_instance.client_node.*.id"
+    instance_ids = "oci_core_instance.ComputeNode.*.id"
   }
 
   provisioner "file" {

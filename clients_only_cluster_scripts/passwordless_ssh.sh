@@ -6,14 +6,12 @@ chmod 640 ~/.ssh/authorized_keys
 
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
 sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' /etc/ssh/sshd_config
-#service sshd restart
 
 mv /root/.ssh/authorized_keys /root/.ssh/authorized_keys.backup
 cp /home/opc/.ssh/authorized_keys /root/.ssh/authorized_keys
 cd /root/.ssh/; cat id_rsa.pub >> authorized_keys ; cd -
 
 find_cluster_nodes () {
-  # Make a list of nodes in the cluster
   echo "Doing nslookup for $nodeType nodes"
   ct=1
   if [ $nodeCount -gt 0 ]; then
@@ -26,7 +24,6 @@ find_cluster_nodes () {
         echo "$hname" >> /tmp/allnodehosts;
         ct=$((ct+1));
       else
-        # sleep 10 seconds and check again - infinite loop
         echo "Sleeping for 10 secs and will check again for nslookup $nodeHostnamePrefix${ct}.$domainName"
         sleep 10
       fi

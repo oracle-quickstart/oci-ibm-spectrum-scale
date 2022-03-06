@@ -25,7 +25,7 @@ variable "ssh_user" { default = "opc" }
 
 variable "AD" { default = "3" }
 
-variable "VPC-CIDR" { default = "10.0.0.0/16" }
+variable "vpc_cidr" { default = "10.0.0.0/16" }
 
 
 # CentOS7.8.2003  -  3.10.0-1127.10.1.el7.x86_64
@@ -95,19 +95,40 @@ variable "SharedData" {
 }
 
 
-
 # Client/Compute Node Configurations
 variable "ComputeNodeCount" { default = "2" }
 variable "ComputeNodeShape" { default = "VM.Standard2.2" }
 variable "ComputeNodeHostnamePrefix" { default = "ss-compute-" }
 
-variable "InstallerNode" { default = "1" }
 
-# Callhome Configuration
-variable "CompanyName" { default = "Company Name" }
-variable "CompanyID"  { default = "1234567" }
-variable "CountryCode" { default = "US" }
-variable "EmailAddress"  { default = "name@email.com" }
+variable "use_existing_vcn" {
+  default = "false"
+}
+
+variable "vcn_id" {
+  default = ""
+}
+
+variable "bastion_subnet_id" {
+  default = ""
+}
+
+variable "private_subnet_id" {
+  default = ""
+}
+
+
+
+##################################################
+## Variables which should not be changed by user
+##################################################
+
+locals {
+  bastion_subnet_id = var.use_existing_vcn ? var.bastion_subnet_id : element(concat(oci_core_subnet.public.*.id, [""]), 0)
+  private_subnet_id = var.use_existing_vcn ? var.private_subnet_id : element(concat(oci_core_subnet.private.*.id, [""]), 0)
+  private_subnet_domain_name= ("${data.oci_core_subnet.private.dns_label}.${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+  vcn_domain_name=("${data.oci_core_vcn.vcn.dns_label}.oraclevcn.com" )
+}
 
 
 variable "SharedDataVolumeAttachDeviceMapping" {

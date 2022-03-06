@@ -56,7 +56,7 @@ vm.swappiness=30
 cd -
 
 
-# before applying to client nodes, make sure they have enough memory.
+# make sure client they have enough memory.
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   coreIdCount=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` ; echo $coreIdCount
@@ -69,10 +69,8 @@ if [ $? -eq 0 ] ; then
   fi ;
 fi;
 
-# Display active profile
 tuned-adm active
 
-# only for client nodes
 echo "$thisHost" | grep -q  $clientNodeHostnamePrefix
 if [ $? -eq 0 ] ; then
   echo off > /sys/devices/system/cpu/smt/control
