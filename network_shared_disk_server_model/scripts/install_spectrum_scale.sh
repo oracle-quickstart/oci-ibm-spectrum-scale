@@ -50,38 +50,25 @@ name = Spectrum Scale - SMB
 baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/smb_rpms/rhel7
 gpgcheck=0
 enabled=1
-[spectrum_scale-object]
-name = Spectrum Scale - Object
-baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/object_rpms/rhel7
-gpgcheck=0
-enabled=1
 [spectrum_scale-zimon]
 name = Spectrum Scale - Zimon
 baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/zimon_rpms/rhel7
 gpgcheck=0
 enabled=1' > /etc/yum.repos.d/spectrum-scale.repo
 
-echo $version | egrep "5.0.5|5.0.4"
-if ( [ $? -eq 0 ] ); then
-echo '[spectrum_scale-gpfs-optional-5050]
-name = Spectrum Scale - GPFS-5050
+echo '[spectrum_scale-object-rhel8]
+name = Spectrum Scale - Object
+baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/object_rpms/rhel8
+gpgcheck=0
+enabled=1
+[spectrum_scale-gpfs-rhel]
+name = Spectrum Scale - rhel
 baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/gpfs_rpms/rhel
 gpgcheck=0
 enabled=1
-[spectrum_scale-gpfs-optional-5050]
-name = Spectrum Scale - GPFS-5050
-baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/gpfs_rpms/rhel/rhel7
-gpgcheck=0
-enabled=1' >> /etc/yum.repos.d/spectrum-scale.repo
-elif  ( [ "$version" = "5.0.3.2" ] || [ "$version" = "5.0.3.3" ] ); then
-echo '[spectrum_scale-gpfs-optional-503X]
-name = Spectrum Scale - GPFS-503X
-baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/gpfs_rpms/rhel7
-gpgcheck=0
-enabled=1' >> /etc/yum.repos.d/spectrum-scale.repo
-else
-  exit 1;
-fi
+' >> /etc/yum.repos.d/spectrum-scale.repo
+
+
 
 
 yum clean all
@@ -122,8 +109,8 @@ kernelVersion=`uname -a  | gawk -F" " '{ print $3 }' ` ; echo $kernelVersion
 downloadKernelRPMs "kernel-devel"
 downloadKernelRPMs "kernel-headers"
 # --oldpackage
-rpm -Uvh kernel-devel-${kernelVersion}.rpm
-rpm -Uvh kernel-headers-${kernelVersion}.rpm
+rpm -Uvh kernel-devel-${kernelVersion}.rpm  --oldpackage
+rpm -Uvh kernel-headers-${kernelVersion}.rpm  --oldpackage
 
 if [ "$rerun" = "true" ]; then
   yum -y install  cpp gcc gcc-c++ binutils
