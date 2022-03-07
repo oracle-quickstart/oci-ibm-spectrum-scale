@@ -3,6 +3,7 @@
 resource "oci_core_instance" "ComputeNode" {
   count               = "${var.ComputeNodeCount}"
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[var.AD - 1],"name")}"
+  fault_domain        = "FAULT-DOMAIN-${(count.index%2)+1}"
   compartment_id      = "${var.compartment_ocid}"
   display_name        = "${var.ComputeNodeHostnamePrefix}${format("%01d", count.index+1)}"
   shape               = "${var.ComputeNodeShape}"
@@ -43,6 +44,8 @@ resource "oci_core_instance" "ComputeNode" {
         "sharedDataDiskCount=\"${var.SharedData["Count"]}\"",
         "installerNode=\"${var.ComputeNodeHostnamePrefix}${var.installer_node}\"",
         "privateSubnetsFQDN=\"${local.private_subnet_domain_name}\"",
+        "quorumNodeCount=\"${local.derived_quorum_node_count}\"",
+        "quorumNodeHostnamePrefix=\"${var.QuorumNodeHostnamePrefix}\"",
         file("${var.scripts_directory}/boot.sh")
       )))}"
     }
@@ -88,6 +91,8 @@ resource "oci_core_instance" "bastion" {
 resource "null_resource" "deploy_gpfs_on_client_nodes" {
   depends_on = [
     oci_core_instance.ComputeNode,
+    oci_core_volume_attachment.ComputeNode_fsd_blockvolume_attach,
+    oci_core_volume_attachment.ComputeNode_shared_data_blockvolume_attach,
     null_resource.notify_compute_nodes_oci_cli_multi_attach_complete,
   ]
   count = var.ComputeNodeCount
@@ -156,6 +161,7 @@ resource "null_resource" "create_gpfs_cluster" {
     oci_core_instance.ComputeNode,
     null_resource.notify_compute_nodes_oci_cli_multi_attach_complete,
     null_resource.deploy_gpfs_on_client_nodes,
+    null_resource.deploy_gpfs_on_quorum_nodes,
   ]
   count = 1
   triggers = {

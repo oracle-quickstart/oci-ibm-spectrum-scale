@@ -174,3 +174,14 @@ variable "scripts_directory" { default = "../direct_attached_scripts" }
 variable "installer_node" { default = "1" }
 
 
+
+
+# Quorum Node Configurations
+variable QuorumNodeShape { default = "VM.Standard2.2" }
+variable QuorumNodeHostnamePrefix { default = "ss-quorum-" }
+
+
+locals {
+  derived_quorum_node_count = (var.ComputeNodeCount > 2  ? 0 : 1)
+}
+

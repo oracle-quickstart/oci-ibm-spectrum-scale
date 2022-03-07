@@ -11,7 +11,16 @@ if [ $? -eq 0 ] ; then
   count=0
   for hname in `cat /tmp/allnodehosts` ; do
     if [ $count -lt 3 ] ; then
-      echo "${hname}:quorum-manager" >> /root/node.stanza
+      if [ $count -eq 2 ] ; then
+        echo "${hname}" | grep -q $quorumNodeHostnamePrefix
+        if [ $? -eq 0 ] ; then
+          echo "${hname}:quorum" >> /root/node.stanza
+        else
+          echo "${hname}:quorum-manager" >> /root/node.stanza
+        fi
+      else
+        echo "${hname}:quorum-manager" >> /root/node.stanza
+      fi
     else
       echo "${hname}" >> /root/node.stanza
     fi
@@ -36,7 +45,7 @@ mmlscluster
 sleep 30s
 
 /usr/lpp/mmfs/bin/mmstartup -a
-while [ `mmgetstate -a | grep "active" | wc -l` -lt $((clientNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
+while [ `mmgetstate -a | grep "active" | wc -l` -lt $((clientNodeCount + quorumNodeCount)) ] ; do echo "waiting for client nodes of cluster to start ..." ; sleep 10s; done;
 
 
 
@@ -68,6 +77,17 @@ echo "failureGroup=$failureGroup" >> $stanzaForNSDFileName
 echo "pool=system" >> $stanzaForNSDFileName
 
 done
+
+if [ $quorumNodeCount -eq 1 ]; then
+  echo " " >> $stanzaForNSDFileName
+  echo "%nsd: nsd=nsdquorum" >> $stanzaForNSDFileName
+  echo "device=/dev/oracleoci/oraclevd${diskArray[(($sharedDataDiskCount))]}" >> $stanzaForNSDFileName
+  echo "servers=${quorumNodeHostnamePrefix}1" >> $stanzaForNSDFileName
+  echo "usage=descOnly" >> $stanzaForNSDFileName
+  echo "failureGroup=500" >> $stanzaForNSDFileName
+  echo "pool=system" >> $stanzaForNSDFileName
+fi
+
 
 mmlsnodeclass --all
 

@@ -54,7 +54,13 @@ enabled=1
 name = Spectrum Scale - Zimon
 baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/zimon_rpms/rhel7
 gpgcheck=0
-enabled=1' > /etc/yum.repos.d/spectrum-scale.repo
+enabled=1
+[spectrum_scale-gpfs-optional]
+name = Spectrum Scale - GPFS optional
+baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/gpfs_rpms/rhel
+gpgcheck=0
+enabled=1
+' > /etc/yum.repos.d/spectrum-scale.repo
 
 echo '[spectrum_scale-object-rhel8]
 name = Spectrum Scale - Object
@@ -67,7 +73,6 @@ baseurl = file:///usr/lpp/mmfs/$spec_scale_ver/gpfs_rpms/rhel
 gpgcheck=0
 enabled=1
 ' >> /etc/yum.repos.d/spectrum-scale.repo
-
 
 
 
